@@ -19,6 +19,7 @@ public class Main extends DSLinkHandler {
 	public void onResponderConnected(DSLink link){
 		NodeManager manager = link.getNodeManager();
         Node superRoot = manager.getNode("/").getNode();
+        //SubscriptionManager submanager = link.getSubscriptionManager();
         SnmpLink.start(superRoot);
 	}
 
