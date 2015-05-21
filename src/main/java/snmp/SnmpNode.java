@@ -1,7 +1,6 @@
 package snmp;
 
 import java.io.IOException;
-
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.Permission;
@@ -10,12 +9,15 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
-import org.snmp4j.CommunityTarget;
 import org.snmp4j.PDU;
 import org.snmp4j.Snmp;
 import org.snmp4j.event.ResponseEvent;
 import org.snmp4j.event.ResponseListener;
+import org.snmp4j.smi.AbstractVariable;
+import org.snmp4j.smi.AssignableFromString;
 import org.snmp4j.smi.OID;
+import org.snmp4j.smi.SMIConstants;
+import org.snmp4j.smi.Variable;
 import org.snmp4j.smi.VariableBinding;
 import org.vertx.java.core.Handler;
 
@@ -24,13 +26,12 @@ public class SnmpNode {
 	protected Node node;
 	protected SnmpLink link;
 	protected Snmp snmp;
-	protected CommunityTarget target;
 	protected AgentNode root;
 	
 	SnmpNode(SnmpLink slink, Node mynode) {
 		link = slink;
 		node = mynode;
-		node.setAttribute("restorable", new Value(true));
+		node.setAttribute("restoreType", new Value("folder"));
 		this.snmp = link.snmp;
 		
 		Action act = new Action(Permission.READ, new GetHandler());
@@ -44,13 +45,12 @@ public class SnmpNode {
 		node.createChild("addFolder").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new WalkHandler());
 		act.addParameter(new Parameter("name", ValueType.STRING));
-		act.addParameter(new Parameter("OID", ValueType.STRING));
+		act.addParameter(new Parameter("OID", ValueType.STRING, new Value("0.0")));
 		node.createChild("walk").setAction(act).build().setSerializable(false);
 	}
 	
-	SnmpNode(SnmpLink slink, Node mynode, CommunityTarget target, AgentNode anode) {
+	SnmpNode(SnmpLink slink, Node mynode, AgentNode anode) {
 		this(slink, mynode);
-		this.target = target;
 		this.root = anode;
 	}
 	
@@ -60,6 +60,13 @@ public class SnmpNode {
 			String oid = event.getParameter("OID", ValueType.STRING).getString();
 			if (oid.charAt(0)=='.') oid = oid.substring(1);
 			Node response = node.createChild(name).build();
+			Action act = new Action(Permission.READ, new Handler<ActionResult>() {
+				public void handle(ActionResult event) {
+					node.removeChild(name);
+				}
+			});
+			response.createChild("remove").setAction(act).build().setSerializable(false);
+			response.setAttribute("restoreType", new Value("walk"));
 			walk(response, new OID(oid));
 		}
 	}
@@ -75,11 +82,14 @@ public class SnmpNode {
 		       if (event.getResponse() != null && !event.getResponse().get(0).isException()) {
 		    	   OID noid = event.getResponse().get(0).getOid();
 		    	   String val = event.getResponse().getVariable(noid).toString();
-		    	   NodeBuilder builder = response.createChild(noid.toDottedString().replace('.', ','));
+		    	   
+		    	   String noidname = noid.toDottedString();
+		    	   NodeBuilder builder = response.createChild(noidname.replace('.', ','));
 		    	   builder.setValueType(ValueType.STRING);
 		    	   builder.setValue(new Value(val));
 		    	   Node vnode = builder.build();
 		    	   vnode.setAttribute("oid", new Value(noid.toString()));
+		    	   vnode.setAttribute("syntax", new Value(event.getResponse().getVariable(noid).getSyntax()));
 		    	   createOidActions(vnode);
 		    	   link.setupOID(vnode, root);
 		    	   walk(response, noid);
@@ -87,7 +97,7 @@ public class SnmpNode {
 		     }
 		   };
 		try {
-			snmp.send(pdu, target, null, listener);
+			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -97,7 +107,7 @@ public class SnmpNode {
 	class AddFolderHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
 			String name = event.getParameter("name", ValueType.STRING).getString();
-			new SnmpNode(link, node.createChild(name).build(), target, root);
+			new SnmpNode(link, node.createChild(name).build(), root);
 		}
 	}
 	
@@ -134,12 +144,15 @@ public class SnmpNode {
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
 		       System.out.println("Received response PDU is: "+event.getResponse());
 		       String val = "null";
-		       if (event.getResponse() != null) val = event.getResponse().getVariable(new OID(oid)).toString();
+		       if (event.getResponse() != null) {
+		    	   val = event.getResponse().getVariable(new OID(oid)).toString();
+		    	   response.setAttribute("syntax", new Value(event.getResponse().getVariable(new OID(oid)).getSyntax()));
+		       }
 		       response.setValue(new Value(val));
 		     }
 		   };
 		try {
-			snmp.send(pdu, target, null, listener);
+			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -149,11 +162,49 @@ public class SnmpNode {
 	void createOidActions(Node valnode) {
 		Action act = new Action(Permission.READ, new RemoveOidHandler(valnode));
 	    valnode.createChild("remove").setAction(act).build().setSerializable(false);
-//	    Action act = new Action(Permission.READ, new SetHandler());
-//	    valnode.createChild("set").setAction(act).build().setSerializable(false);
+	    act = new Action(Permission.READ, new SetHandler(valnode));
+	    act.addParameter(new Parameter("value", ValueType.STRING));
+	    valnode.createChild("set").setAction(act).build().setSerializable(false);
 //	    valnode.setWritable(Writable.WRITE);
-	    //valnode.getListener().setValueHandler(handler);
+//	    valnode.getListener().setValueHandler(handler);
 	    
+	}
+	
+	class SetHandler implements Handler<ActionResult> {
+		private Node vnode;
+		SetHandler(Node valnode) {
+			vnode = valnode;
+		}
+		public void handle(ActionResult event) {
+			PDU pdu = new PDU();
+			Value oid = vnode.getAttribute("oid");
+			Value syntax = vnode.getAttribute("syntax");
+			if (oid == null || syntax == null) return;
+			String valstring = event.getParameter("value", ValueType.STRING).getString();
+			int syntaxInt = syntax.getNumber().intValue();
+			if (syntaxInt == SMIConstants.SYNTAX_NULL) return;
+			Variable val = AbstractVariable.createFromSyntax(syntaxInt);
+			if (!(val instanceof AssignableFromString)) return;
+			((AssignableFromString) val).setValue(valstring);
+			pdu.add(new VariableBinding(new OID(oid.getString()), val));
+			
+//			try {
+//				pdu.add(new VariableBinding(new OID(oid), val));
+//			} catch (ParseException e) {
+//				// TODO Auto-generated catch block
+//				System.out.println("Error parsing value string");
+//				e.printStackTrace();
+//				return;
+//			}
+			pdu.setType(PDU.SET);
+			try {
+				snmp.send(pdu, root.target, null, null);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
 	}
 	
 	class RemoveOidHandler implements Handler<ActionResult> {
@@ -169,13 +220,31 @@ public class SnmpNode {
 	
 	void restoreLastSession() {
 		for  (Node child: node.getChildren().values()) {
-			Value restorable = child.getAttribute("restorable");
-			if (restorable != null && restorable.getBool() == true) {
-				SnmpNode sn = new SnmpNode(link, child, target, root);
+			Value restoreType = child.getAttribute("restoreType");
+			if (restoreType != null && restoreType.getString().equals("folder")) {
+				SnmpNode sn = new SnmpNode(link, child, root);
 				sn.restoreLastSession();
+			} else if (restoreType != null && restoreType.getString().equals("walk")) {
+				for (Node subchild: child.getChildren().values()) {
+					if (subchild.getValue() != null) {
+						createOidActions(subchild);
+						link.setupOID(subchild, root);
+					}
+				}
+				final String name = child.getName();
+				Action act = new Action(Permission.READ, new Handler<ActionResult>() {
+					public void handle(ActionResult event) {
+						node.removeChild(name);
+					}
+				});
+				child.createChild("remove").setAction(act).build().setSerializable(false);
 			} else if (child.getValue() != null) {
-				createOidActions(child);
-				link.setupOID(child, root);
+				if (root == this && child.getName() == "TRAPS") {
+					
+				} else {
+					createOidActions(child);
+					link.setupOID(child, root);
+				}
 			} else if (child.getAction() == null) {
 				node.removeChild(child);
 			}
