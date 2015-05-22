@@ -1,6 +1,7 @@
 package snmp;
 
 import java.io.IOException;
+
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.Permission;
@@ -82,8 +83,7 @@ public class SnmpNode {
 		       if (event.getResponse() != null && !event.getResponse().get(0).isException()) {
 		    	   OID noid = event.getResponse().get(0).getOid();
 		    	   String val = event.getResponse().getVariable(noid).toString();
-		    	   
-		    	   String noidname = noid.toDottedString();
+		    	   String noidname = link.parseOid(noid);
 		    	   NodeBuilder builder = response.createChild(noidname.replace('.', ','));
 		    	   builder.setValueType(ValueType.STRING);
 		    	   builder.setValue(new Value(val));
@@ -225,10 +225,12 @@ public class SnmpNode {
 				SnmpNode sn = new SnmpNode(link, child, root);
 				sn.restoreLastSession();
 			} else if (restoreType != null && restoreType.getString().equals("walk")) {
-				for (Node subchild: child.getChildren().values()) {
-					if (subchild.getValue() != null) {
-						createOidActions(subchild);
-						link.setupOID(subchild, root);
+				if (child.getChildren() != null) {
+					for (Node subchild: child.getChildren().values()) {
+						if (subchild.getValue() != null) {
+							createOidActions(subchild);
+							link.setupOID(subchild, root);
+						}
 					}
 				}
 				final String name = child.getName();

@@ -1,15 +1,24 @@
 package snmp;
 
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import net.percederberg.mibble.Mib;
+import net.percederberg.mibble.MibLoader;
+import net.percederberg.mibble.MibLoaderException;
+import net.percederberg.mibble.MibValueSymbol;
+import net.percederberg.mibble.value.ObjectIdentifierValue;
+
 import org.dsa.iot.dslink.node.Node;
-import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.ActionResult;
@@ -30,6 +39,7 @@ import org.snmp4j.security.SecurityProtocols;
 import org.snmp4j.security.USM;
 import org.snmp4j.smi.Address;
 import org.snmp4j.smi.GenericAddress;
+import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.smi.VariableBinding;
@@ -44,6 +54,8 @@ public class SnmpLink {
 	private Node node;
 	Snmp snmp;
 	private final Map<Node, ScheduledFuture<?>> futures;
+	private MibLoader mibLoader;
+	private static final File MIB_STORE = new File(System.getProperty("user.home"), ".mib_store");
 	
 	private SnmpLink(Node node) {
 		this.node = node;
@@ -57,6 +69,13 @@ public class SnmpLink {
 	}
 	
 	private void init() {
+		
+		mibLoader = new MibLoader();
+		if (!MIB_STORE.exists()) {
+			if (!MIB_STORE.mkdirs()) System.out.println("error making Mib Store directory");
+		}
+		mibLoader.addDir(MIB_STORE);
+		loadAllMibs();
 		
 		Address listenAddress = GenericAddress.parse(System.getProperty("snmp4j.listenAddress","udp:0.0.0.0/162"));
 		TransportMapping<UdpAddress> transport;
@@ -93,7 +112,8 @@ public class SnmpLink {
 				    			 JsonArray traparr = new JsonArray(tnode.getValue().getString());
 				    			 JsonObject jo = new JsonObject();
 				    			 for (VariableBinding vb: command.toArray()) {
-				    				 jo.putString("VBS: "+vb.getOid().format(), vb.toValueString());
+				    				 String fieldname = parseOid(vb.getOid());
+				    				 jo.putString(fieldname, vb.toValueString());
 				    			 }
 				    			 traparr.addObject(jo);
 				    			 tnode.setValue(new Value(traparr.toString()));
@@ -119,10 +139,10 @@ public class SnmpLink {
 		act.addParameter(new Parameter("ip", ValueType.STRING));
 		act.addParameter(new Parameter("port", ValueType.STRING));
 		act.addParameter(new Parameter("refreshInterval", ValueType.NUMBER));
-		NodeBuilder b = node.createChild("addAgent");
-		b.setAction(act);
-		Node n = b.build();
-		n.setSerializable(false);
+		node.createChild("addAgent").setAction(act).build().setSerializable(false);
+		act = new Action(Permission.READ, new AddMibHandler());
+		act.addParameter(new Parameter("MIB Text", ValueType.STRING));
+		node.createChild("add MIB").setAction(act).build().setSerializable(false);
 		
 	}
 	
@@ -136,6 +156,94 @@ public class SnmpLink {
 				an.restoreLastSession();
 			} else if (child.getAction() == null) {
 				node.removeChild(child);
+			}
+		}
+	}
+	
+	String parseOid(OID oid) {
+		String oidString = oid.toDottedString();
+		MibValueSymbol bestmatch = null;
+		for (Mib mib: mibLoader.getAllMibs()) {
+			MibValueSymbol mvs = mib.getSymbolByOid(oidString);
+			ObjectIdentifierValue mvsOid = getOidFromSymbol(mvs);
+			if (mvsOid != null) {
+				if (bestmatch == null || mvsOid.toString().length() > getOidFromSymbol(bestmatch).toString().length()) {
+					bestmatch = mvs;
+				}
+			}
+		}
+		if (bestmatch == null) return oidString;
+		String matchingOidString = getOidFromSymbol(bestmatch).toString().replace('.', ',');
+		oidString = oidString.replace('.', ',');
+		String retString = oidString.replaceFirst(matchingOidString, bestmatch.getName());
+		return retString.replace(',', '.');
+		
+	}
+	
+	private static ObjectIdentifierValue getOidFromSymbol(MibValueSymbol mvs) {
+		if (mvs != null && mvs.getValue() instanceof ObjectIdentifierValue) {
+            return (ObjectIdentifierValue) mvs.getValue();
+        }
+		return null;
+	}
+	
+	private class AddMibHandler implements Handler<ActionResult> {
+		public void handle(ActionResult event) {
+			String mibText = event.getParameter("MIB Text", ValueType.STRING).getString();
+			String name = mibText.trim().split("\\s+")[0];
+			File mibFile = new File(MIB_STORE, name);
+			if (mibFile.exists()) {
+				if (!mibFile.delete()) System.out.println("error deleting old MIB file");
+			}
+			saveMib(mibFile, mibText);
+			try {
+				mibLoader.load(mibFile);
+			} catch (IOException e) {
+				System.out.println("IOException while loading MIB");
+				e.printStackTrace();
+			} catch (MibLoaderException e) {
+				System.out.println("MibLoaderException while loading MIB");
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void saveMib(File mibFile, String mibText) {
+		Writer writer = null;
+		try {
+		    writer = new OutputStreamWriter( new FileOutputStream(mibFile), "US-ASCII");
+		    writer.write(mibText);
+		} catch ( IOException e) {
+		} finally {
+		    try {
+		        if ( writer != null)
+		        writer.close( );
+		    } catch ( IOException e) {
+		    }
+		}
+	}
+	
+	private void loadAllMibs() {
+		for (String mibName: Config.STANDARD_MIBS) {
+			try {
+				mibLoader.load(mibName);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (MibLoaderException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		for (File mibFile: MIB_STORE.listFiles()) {
+			try {
+				mibLoader.load(mibFile);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (MibLoaderException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
