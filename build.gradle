@@ -2,7 +2,7 @@ apply plugin: 'application'
 apply plugin: 'findbugs'
 apply plugin: 'java'
 
-mainClassName = 'org.dsa.iot.snmp.Main'
+mainClassName = 'snmp.Main'
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 version = '0.0.1-SNAPSHOT'
