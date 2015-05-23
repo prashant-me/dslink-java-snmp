@@ -16,6 +16,9 @@
     "url": "https://github.com/IOT-DSA/dslink-java-snmp/issues"
   },
   "configs": {
+    "broker": {
+      "type": "url"
+    },
     "nodes": {
       "type": "path",
       "value": "nodes.json",
