@@ -21,18 +21,15 @@
     },
     "nodes": {
       "type": "path",
-      "value": "nodes.json",
-      "required": true
+      "default": "nodes.json"
     },
     "key": {
       "type": "path",
-      "value": ".key",
-      "required": true
+      "default": ".key"
     },
     "log": {
       "type": "enum",
-      "value": "info",
-      "required": true
+      "default": "info"
     }
   }
 }
