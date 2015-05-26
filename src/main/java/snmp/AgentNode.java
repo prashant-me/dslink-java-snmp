@@ -30,9 +30,15 @@ class AgentNode extends SnmpNode {
 		node.setAttribute("communityString", new Value(comString));
 		node.setAttribute("retries", new Value(retries));
 		node.setAttribute("timeout", new Value(timeout));
-		Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
+		final Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
 		String emptyjson = new JsonArray().toString();
 		tnode.setValue(new Value(emptyjson));
+		Action act = new Action(Permission.READ, new Handler<ActionResult>() {
+			public void handle(ActionResult event) {
+				tnode.setValue(new Value(new JsonArray().toString()));
+			}
+		});
+		tnode.createChild("clear").setAction(act).build().setSerializable(false);
 		
 		setTarget(ip, comString, retries, timeout);
 		
