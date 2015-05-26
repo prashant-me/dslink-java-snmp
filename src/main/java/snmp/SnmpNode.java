@@ -165,8 +165,6 @@ public class SnmpNode {
 	    act = new Action(Permission.READ, new SetHandler(valnode));
 	    act.addParameter(new Parameter("value", ValueType.STRING));
 	    valnode.createChild("set").setAction(act).build().setSerializable(false);
-//	    valnode.setWritable(Writable.WRITE);
-//	    valnode.getListener().setValueHandler(handler);
 	    
 	}
 	

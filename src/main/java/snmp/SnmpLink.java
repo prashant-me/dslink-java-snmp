@@ -22,6 +22,7 @@ import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.ActionResult;
+import org.dsa.iot.dslink.node.actions.EditorType;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
@@ -55,7 +56,7 @@ public class SnmpLink {
 	Snmp snmp;
 	private final Map<Node, ScheduledFuture<?>> futures;
 	private MibLoader mibLoader;
-	private static final File MIB_STORE = new File(System.getProperty("user.home"), ".mib_store");
+	private static final File MIB_STORE = new File(".mib_store");
 	
 	private SnmpLink(Node node) {
 		this.node = node;
@@ -139,9 +140,14 @@ public class SnmpLink {
 		act.addParameter(new Parameter("ip", ValueType.STRING));
 		act.addParameter(new Parameter("port", ValueType.STRING));
 		act.addParameter(new Parameter("refreshInterval", ValueType.NUMBER));
+		act.addParameter(new Parameter("communityString", ValueType.STRING, new Value("public")));
+		act.addParameter(new Parameter("retries", ValueType.NUMBER, new Value(2)));
+		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(1500)));
 		node.createChild("addAgent").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new AddMibHandler());
-		act.addParameter(new Parameter("MIB Text", ValueType.STRING));
+		Parameter param = new Parameter("MIB Text", ValueType.STRING);
+		param.setEditorType(EditorType.TEXT_AREA);
+		act.addParameter(param);
 		node.createChild("add MIB").setAction(act).build().setSerializable(false);
 		
 	}
@@ -151,8 +157,13 @@ public class SnmpLink {
 		for (Node child: node.getChildren().values()) {
 			Value ip = child.getAttribute("ip");
 			Value interval = child.getAttribute("interval");
-			if (ip != null && interval != null) {
-				AgentNode an = new AgentNode(this, child, ip.getString(), interval.getNumber().longValue());
+			Value comStr = child.getAttribute("communityString");
+			Value retries = child.getAttribute("retries");
+			Value timeout = child.getAttribute("timeout");
+			if (ip != null && interval != null && comStr != null && retries != null && timeout != null) {
+				AgentNode an = new AgentNode(this, child, ip.getString(),
+						interval.getNumber().longValue(), comStr.getString(), 
+						retries.getNumber().intValue(), timeout.getNumber().longValue());
 				an.restoreLastSession();
 			} else if (child.getAction() == null) {
 				node.removeChild(child);
@@ -254,8 +265,11 @@ public class SnmpLink {
 					+ event.getParameter("port", ValueType.STRING).getString();
 			String name = event.getParameter("name", ValueType.STRING).getString();
 			long interval = event.getParameter("refreshInterval", ValueType.NUMBER).getNumber().longValue();
+			String comStr = event.getParameter("communityString", ValueType.STRING).getString();
+			int retries = event.getParameter("retries", ValueType.NUMBER).getNumber().intValue();
+			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			Node child = node.createChild(name).build();
-			new AgentNode(getMe(), child, ip, interval);
+			new AgentNode(getMe(), child, ip, interval, comStr, retries, timeout);
 		}
 	}
 	
