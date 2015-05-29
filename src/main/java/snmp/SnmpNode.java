@@ -217,6 +217,7 @@ public class SnmpNode {
 	}
 	
 	void restoreLastSession() {
+		if (node.getChildren() == null) return;
 		for  (Node child: node.getChildren().values()) {
 			Value restoreType = child.getAttribute("restoreType");
 			if (restoreType != null && restoreType.getString().equals("folder")) {
