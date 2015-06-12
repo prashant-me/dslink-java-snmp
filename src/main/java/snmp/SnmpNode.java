@@ -104,6 +104,7 @@ public class SnmpNode {
 		     }
 		   };
 		try {
+			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
 			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -160,6 +161,7 @@ public class SnmpNode {
 		     }
 		   };
 		try {
+			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
 			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -206,6 +208,7 @@ public class SnmpNode {
 //			}
 			pdu.setType(PDU.SET);
 			try {
+				LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
 				snmp.send(pdu, root.target, null, null);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
