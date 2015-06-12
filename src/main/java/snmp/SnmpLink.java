@@ -28,6 +28,8 @@ import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snmp4j.CommandResponder;
 import org.snmp4j.CommandResponderEvent;
 import org.snmp4j.MessageDispatcher;
@@ -53,6 +55,7 @@ import org.vertx.java.core.json.JsonObject;
 
 public class SnmpLink {
 	
+	private final static Logger LOGGER;
 	private Node node;
 	private Node mibnode;
 	Snmp snmp;
@@ -73,11 +76,15 @@ public class SnmpLink {
 		link.init();
 	}
 	
+	static {
+        LOGGER = LoggerFactory.getLogger(SnmpLink.class);
+    }
+	
 	private void init() {
 		
 		mibLoader = new MibLoader();
 		if (!MIB_STORE.exists()) {
-			if (!MIB_STORE.mkdirs()) System.out.println("error making Mib Store directory");
+			if (!MIB_STORE.mkdirs()) LOGGER.error("error making Mib Store directory");
 		}
 		mibLoader.addDir(MIB_STORE);
 		loadAllMibs();
@@ -108,7 +115,7 @@ public class SnmpLink {
 			     public synchronized void processPdu(CommandResponderEvent e) {
 			    	 PDU command = e.getPDU();
 			    	 if (command != null) {
-			    		 System.out.println(command.toString());
+			    		 LOGGER.info("recieved trap: " + command.toString());
 			    		 String from = ((UdpAddress) e.getPeerAddress()).getInetAddress().getHostAddress();
 				    	 for (Node child: node.getChildren().values()) {
 				    		 Value ip = child.getAttribute("ip");
@@ -134,7 +141,8 @@ public class SnmpLink {
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.debug("error:", e);
+			//e.printStackTrace();
 		}
 		
 		restoreLastSession();
@@ -207,13 +215,13 @@ public class SnmpLink {
 			String mibText = event.getParameter("MIB Text", ValueType.STRING).getString();
 			String trimmedText = removeLeadingComments(mibText);
 			if (trimmedText.isEmpty()) {
-				System.out.println("error: MIB is nothing but comments");
+				LOGGER.error("MIB is nothing but comments");
 				return;
 			}
 			String name = trimmedText.trim().split("\\s+")[0];
 			File mibFile = new File(MIB_STORE, name);
 			if (mibFile.exists()) {
-				if (!mibFile.delete()) System.out.println("error deleting old MIB file");
+				if (!mibFile.delete()) LOGGER.error("error deleting old MIB file");
 			}
 			saveMib(mibFile, mibText);
 			Node child = mibnode.createChild(name).build();
@@ -223,11 +231,13 @@ public class SnmpLink {
 			try {
 				mibLoader.load(mibFile);
 			} catch (IOException e) {
-				System.out.println("IOException while loading MIB");
-				e.printStackTrace();
+				LOGGER.error("IOException while loading MIB");
+				LOGGER.debug("error:", e);
+				//e.printStackTrace();
 			} catch (MibLoaderException e) {
-				System.out.println("MibLoaderException while loading MIB");
-				e.printStackTrace();
+				LOGGER.error("MibLoaderException while loading MIB");
+				LOGGER.debug("error:", e);
+				//e.printStackTrace();
 			}
 		}
 	}
@@ -267,9 +277,10 @@ public class SnmpLink {
 				mibLoader.unload(remfile);
 			} catch (MibLoaderException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				//e.printStackTrace();
+				LOGGER.debug("error:", e);
 			}
-			if (!remfile.delete()) System.out.println("Error deleting MIB file");
+			if (!remfile.delete()) LOGGER.error("Error deleting MIB file");
 			mibnode.removeChild(toRemove);
 			
 		}
@@ -296,10 +307,12 @@ public class SnmpLink {
 				mibLoader.load(mibName);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				//e.printStackTrace();
+				LOGGER.debug("error:", e);
 			} catch (MibLoaderException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				//e.printStackTrace();
+				LOGGER.debug("error:", e);
 			}
 		}
 		for (File mibFile: MIB_STORE.listFiles()) {
@@ -312,10 +325,12 @@ public class SnmpLink {
 				mibLoader.load(mibFile);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				//e.printStackTrace();
+				LOGGER.debug("error:", e);
 			} catch (MibLoaderException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				//e.printStackTrace();
+				LOGGER.debug("error:", e);
 			}
 		}
 	}

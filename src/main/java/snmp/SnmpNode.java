@@ -10,6 +10,8 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snmp4j.PDU;
 import org.snmp4j.Snmp;
 import org.snmp4j.event.ResponseEvent;
@@ -23,6 +25,7 @@ import org.snmp4j.smi.VariableBinding;
 import org.vertx.java.core.Handler;
 
 public class SnmpNode {
+	static private final Logger LOGGER;
 	
 	protected Node node;
 	protected SnmpLink link;
@@ -55,6 +58,10 @@ public class SnmpNode {
 		this.root = anode;
 	}
 	
+	static {
+        LOGGER = LoggerFactory.getLogger(SnmpLink.class);
+    }
+	
 	class WalkHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
 			final String name = event.getParameter("name", ValueType.STRING).getString();
@@ -79,7 +86,7 @@ public class SnmpNode {
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
-		       System.out.println("Received response PDU is: "+event.getResponse());
+		       LOGGER.info("Received response PDU is: "+event.getResponse());
 		       if (event.getResponse() != null && !event.getResponse().get(0).isException()) {
 		    	   OID noid = event.getResponse().get(0).getOid();
 		    	   String val = event.getResponse().getVariable(noid).toString();
@@ -100,7 +107,8 @@ public class SnmpNode {
 			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//e.printStackTrace();
+			LOGGER.debug("error:", e);
 		}
 	}
 	
@@ -142,7 +150,7 @@ public class SnmpNode {
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
-		       System.out.println("Received response PDU is: "+event.getResponse());
+		       LOGGER.info("Received response PDU is: "+event.getResponse());
 		       String val = "null";
 		       if (event.getResponse() != null) {
 		    	   val = event.getResponse().getVariable(new OID(oid)).toString();
@@ -155,7 +163,8 @@ public class SnmpNode {
 			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//e.printStackTrace();
+			LOGGER.debug("error:", e);
 		}
 	}
 	
@@ -190,8 +199,9 @@ public class SnmpNode {
 //				pdu.add(new VariableBinding(new OID(oid), val));
 //			} catch (ParseException e) {
 //				// TODO Auto-generated catch block
-//				System.out.println("Error parsing value string");
+//				LOGGER.error("Error parsing value string");
 //				e.printStackTrace();
+//				LOGGER.debug("error:", e);
 //				return;
 //			}
 			pdu.setType(PDU.SET);
@@ -199,7 +209,8 @@ public class SnmpNode {
 				snmp.send(pdu, root.target, null, null);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				//e.printStackTrace();
+				LOGGER.debug("error:", e);
 			}
 			
 		}
