@@ -86,7 +86,7 @@ public class SnmpNode {
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
-		       LOGGER.info("Received response PDU is: "+event.getResponse());
+		       LOGGER.debug("Received response PDU is: "+event.getResponse());
 		       if (event.getResponse() != null && !event.getResponse().get(0).isException()) {
 		    	   OID noid = event.getResponse().get(0).getOid();
 		    	   String val = event.getResponse().getVariable(noid).toString();
@@ -151,7 +151,7 @@ public class SnmpNode {
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
-		       LOGGER.info("Received response PDU is: "+event.getResponse());
+		       LOGGER.debug("Received response PDU is: "+event.getResponse());
 		       String val = "null";
 		       if (event.getResponse() != null) {
 		    	   val = event.getResponse().getVariable(new OID(oid)).toString();

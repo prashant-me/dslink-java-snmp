@@ -115,7 +115,7 @@ public class SnmpLink {
 			     public synchronized void processPdu(CommandResponderEvent e) {
 			    	 PDU command = e.getPDU();
 			    	 if (command != null) {
-			    		 LOGGER.info("recieved trap: " + command.toString());
+			    		 LOGGER.debug("recieved trap: " + command.toString());
 			    		 String from = ((UdpAddress) e.getPeerAddress()).getInetAddress().getHostAddress();
 				    	 for (Node child: node.getChildren().values()) {
 				    		 Value ip = child.getAttribute("ip");

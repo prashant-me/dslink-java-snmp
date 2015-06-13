@@ -15,13 +15,13 @@ public class Main extends DSLinkHandler {
 	
 	public static void main(String[] args) {
 		
-		args = new String[] { "-b", "http://localhost:8080/conn" };
+		//args = new String[] { "-b", "http://localhost:8080/conn" };
 		DSLinkFactory.startResponder("snmpResponder", args, new Main());
 	}
 	
 	@Override
 	public void onResponderConnected(DSLink link){
-		LOGGER.info("connected");
+		LOGGER.info("Connected");
 		
 		NodeManager manager = link.getNodeManager();
         Node superRoot = manager.getNode("/").getNode();
