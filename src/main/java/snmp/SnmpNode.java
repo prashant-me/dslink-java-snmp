@@ -85,11 +85,11 @@ public class SnmpNode {
 		pdu.setType(PDU.GETNEXT);
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
-		    	 LOGGER.info("Received response PDU is: "+event.getResponse());
-		    	 LOGGER.info("Received response PDU Error is: "+event.getError());
-		    	 LOGGER.info("Received response PDU Peer Address is: "+event.getPeerAddress());
+		    	 LOGGER.debug("Received response PDU is: "+event.getResponse());
+		    	 LOGGER.debug("Received response PDU Error is: "+event.getError());
+		    	 LOGGER.debug("Received response PDU Peer Address is: "+event.getPeerAddress());
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
-		       //LOGGER.info("(Walking) Received response PDU is: "+event.getResponse());
+		       //LOGGER.debug("(Walking) Received response PDU is: "+event.getResponse());
 		       if (event.getResponse() != null && !event.getResponse().get(0).isException()) {
 		    	   OID noid = event.getResponse().get(0).getOid();
 		    	   String val = event.getResponse().getVariable(noid).toString();
@@ -107,8 +107,8 @@ public class SnmpNode {
 		     }
 		   };
 		try {
-			LOGGER.info("sending getnext");
-			LOGGER.info("sending pdu: " + pdu + "   to target: " + root.target);
+			LOGGER.debug("sending getnext");
+			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
 			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -154,11 +154,11 @@ public class SnmpNode {
 		pdu.setType(PDU.GET);
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
-		    	 LOGGER.info("Received response PDU is: "+event.getResponse());
-		    	 LOGGER.info("Received response PDU Error is: "+event.getError());
-		    	 LOGGER.info("Received response PDU Peer Address is: "+event.getPeerAddress());
+		    	 LOGGER.debug("Received response PDU is: "+event.getResponse());
+		    	 LOGGER.debug("Received response PDU Error is: "+event.getError());
+		    	 LOGGER.debug("Received response PDU Peer Address is: "+event.getPeerAddress());
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
-		       //LOGGER.info("Received response PDU is: "+event.getResponse());
+		       //LOGGER.debug("Received response PDU is: "+event.getResponse());
 		       String val = "null";
 		       if (event.getResponse() != null) {
 		    	   val = event.getResponse().getVariable(new OID(oid)).toString();
@@ -168,7 +168,7 @@ public class SnmpNode {
 		     }
 		   };
 		try {
-			LOGGER.info("sending pdu: " + pdu + "   to target: " + root.target);
+			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
 			snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

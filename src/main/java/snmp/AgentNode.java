@@ -21,7 +21,7 @@ class AgentNode extends SnmpNode {
 	long interval;
 	CommunityTarget target;
 	
-	AgentNode(SnmpLink slink, Node mynode, String ip, long interval, String comString, int retries, long timeout, int securityLevel) {
+	AgentNode(SnmpLink slink, Node mynode, String ip, long interval, String comString, int retries, long timeout) {
 		super(slink, mynode);
 		root = this;
 		this.interval = interval;
@@ -30,7 +30,7 @@ class AgentNode extends SnmpNode {
 		node.setAttribute("communityString", new Value(comString));
 		node.setAttribute("retries", new Value(retries));
 		node.setAttribute("timeout", new Value(timeout));
-		node.setAttribute("securityLevel", new Value(securityLevel));
+		//node.setAttribute("securityLevel", new Value(securityLevel));
 		final Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
 		String emptyjson = new JsonArray().toString();
 		tnode.setValue(new Value(emptyjson));
@@ -41,12 +41,12 @@ class AgentNode extends SnmpNode {
 		});
 		tnode.createChild("clear").setAction(act).build().setSerializable(false);
 		
-		setTarget(ip, comString, retries, timeout, securityLevel);
+		setTarget(ip, comString, retries, timeout);
 		
-		makeEditAction(ip, interval, comString, retries, timeout, securityLevel);
+		makeEditAction(ip, interval, comString, retries, timeout);
 	}
 	
-	private void makeEditAction(String ip, long interval, String comString, int retries, long timeout, int securityLevel) {
+	private void makeEditAction(String ip, long interval, String comString, int retries, long timeout) {
 		Action act = new Action(Permission.READ, new EditAgentHandler());
 		act.addParameter(new Parameter("ip", ValueType.STRING, new Value(ip.split("/")[0])));
 		act.addParameter(new Parameter("port", ValueType.STRING, new Value(ip.split("/")[1])));
@@ -54,7 +54,7 @@ class AgentNode extends SnmpNode {
 		act.addParameter(new Parameter("communityString", ValueType.STRING, new Value(comString)));
 		act.addParameter(new Parameter("retries", ValueType.NUMBER, new Value(retries)));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(timeout)));
-		act.addParameter(new Parameter("security level", ValueType.NUMBER, new Value(securityLevel)));
+		//act.addParameter(new Parameter("security level", ValueType.NUMBER, new Value(securityLevel)));
 		node.createChild("edit").setAction(act).build().setSerializable(false);
 	}
 	
@@ -66,20 +66,20 @@ class AgentNode extends SnmpNode {
 			String comStr = event.getParameter("communityString", ValueType.STRING).getString();
 			int retries = event.getParameter("retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
-			int securityLevel = event.getParameter("security level", ValueType.NUMBER).getNumber().intValue();
+			//int securityLevel = event.getParameter("security level", ValueType.NUMBER).getNumber().intValue();
 			node.setAttribute("interval", new Value(interval));
 			node.setAttribute("ip", new Value(ip));
 			node.setAttribute("communityString", new Value(comStr));
 			node.setAttribute("retries", new Value(retries));
 			node.setAttribute("timeout", new Value(timeout));
-			setTarget(ip, comStr, retries, timeout, securityLevel);
+			setTarget(ip, comStr, retries, timeout);
 			node.removeChild("edit");
-			makeEditAction(ip, interval, comStr, retries, timeout, securityLevel);
+			makeEditAction(ip, interval, comStr, retries, timeout);
 			
 		}
 	}
 	
-	protected void setTarget(String ip, String comString, int retries, long timeout, int securityLevel) {
+	protected void setTarget(String ip, String comString, int retries, long timeout) {
 		target = new CommunityTarget();
 		target.setCommunity(new OctetString(comString));
 		Address ad = GenericAddress.parse("udp:"+ip);
@@ -87,7 +87,7 @@ class AgentNode extends SnmpNode {
 		target.setRetries(retries);
 		target.setTimeout(timeout);
 		target.setVersion(SnmpConstants.version2c);
-		target.setSecurityLevel(securityLevel);
+		//target.setSecurityLevel(securityLevel);
 	}
 	
 	
