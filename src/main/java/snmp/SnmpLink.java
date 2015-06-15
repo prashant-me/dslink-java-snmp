@@ -91,14 +91,17 @@ public class SnmpLink {
 		
 		Address listenAddress = GenericAddress.parse(System.getProperty("snmp4j.listenAddress","udp:0.0.0.0/162"));
 		TransportMapping<UdpAddress> transport;
+		TransportMapping<UdpAddress> traptransport;
 		
 		try {
+			transport = new DefaultUdpTransportMapping();
 			if (listenAddress instanceof UdpAddress) {
-				transport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
+				traptransport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
 			} else {
-				transport = new DefaultUdpTransportMapping();
+				traptransport = new DefaultUdpTransportMapping();
 			}
 			snmp = new Snmp(transport);
+			Snmp trapsnmp = new Snmp(traptransport);
 			SecurityProtocols.getInstance().addDefaultProtocols();
 			MessageDispatcher disp = snmp.getMessageDispatcher();
 			disp.addMessageProcessingModel(new MPv1());
@@ -135,10 +138,13 @@ public class SnmpLink {
 			    	 e.setProcessed(true);
 			     }
 			   };
-			   snmp.addCommandResponder(trapListener);
+			   
+			   trapsnmp.addCommandResponder(trapListener);
+			   trapsnmp.listen();
 			   
 			   snmp.listen();
-			
+			   LOGGER.debug("snmp started listening");
+			   
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			LOGGER.debug("error:", e);
@@ -155,6 +161,7 @@ public class SnmpLink {
 		act.addParameter(new Parameter("communityString", ValueType.STRING, new Value("public")));
 		act.addParameter(new Parameter("retries", ValueType.NUMBER, new Value(2)));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(1500)));
+		act.addParameter(new Parameter("security level", ValueType.NUMBER, new Value(0)));
 		node.createChild("addAgent").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new AddMibHandler());
 		Parameter param = new Parameter("MIB Text", ValueType.STRING);
@@ -172,10 +179,11 @@ public class SnmpLink {
 			Value comStr = child.getAttribute("communityString");
 			Value retries = child.getAttribute("retries");
 			Value timeout = child.getAttribute("timeout");
-			if (ip != null && interval != null && comStr != null && retries != null && timeout != null) {
+			Value secLvl = child.getAttribute("security level");
+			if (ip != null && interval != null && comStr != null && retries != null && timeout != null && secLvl!=null) {
 				AgentNode an = new AgentNode(this, child, ip.getString(),
 						interval.getNumber().longValue(), comStr.getString(), 
-						retries.getNumber().intValue(), timeout.getNumber().longValue());
+						retries.getNumber().intValue(), timeout.getNumber().longValue(), secLvl.getNumber().intValue());
 				an.restoreLastSession();
 			} else if (child.getAction() == null && child.getName() != "MIBs") {
 				node.removeChild(child);
@@ -344,8 +352,9 @@ public class SnmpLink {
 			String comStr = event.getParameter("communityString", ValueType.STRING).getString();
 			int retries = event.getParameter("retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
+			int secLvl = event.getParameter("security level", ValueType.NUMBER).getNumber().intValue();
 			Node child = node.createChild(name).build();
-			new AgentNode(getMe(), child, ip, interval, comStr, retries, timeout);
+			new AgentNode(getMe(), child, ip, interval, comStr, retries, timeout, secLvl);
 		}
 	}
 	
