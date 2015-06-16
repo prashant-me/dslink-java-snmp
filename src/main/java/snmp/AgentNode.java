@@ -9,27 +9,29 @@ import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.snmp4j.CommunityTarget;
-import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.Address;
 import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.OctetString;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.json.JsonArray;
 
+import snmp.SnmpLink.SnmpVersion;
+
 class AgentNode extends SnmpNode {
 	
 	long interval;
 	CommunityTarget target;
 	
-	AgentNode(SnmpLink slink, Node mynode, String ip, long interval, String comString, int retries, long timeout) {
+	AgentNode(SnmpLink slink, Node mynode, String ip, long interval, String comString, SnmpVersion version, int retries, long timeout) {
 		super(slink, mynode);
 		root = this;
 		this.interval = interval;
-		node.setAttribute("interval", new Value(this.interval));
-		node.setAttribute("ip", new Value(ip));
-		node.setAttribute("communityString", new Value(comString));
-		node.setAttribute("retries", new Value(retries));
-		node.setAttribute("timeout", new Value(timeout));
+		node.setAttribute("Refresh Interval", new Value(this.interval));
+		node.setAttribute("IP", new Value(ip));
+		node.setAttribute("Community String", new Value(comString));
+		node.setAttribute("SNMP Version", new Value(version.toString()));
+		node.setAttribute("Retries", new Value(retries));
+		node.setAttribute("Timeout", new Value(timeout));
 		//node.setAttribute("securityLevel", new Value(securityLevel));
 		final Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
 		String emptyjson = new JsonArray().toString();
@@ -41,18 +43,19 @@ class AgentNode extends SnmpNode {
 		});
 		tnode.createChild("clear").setAction(act).build().setSerializable(false);
 		
-		setTarget(ip, comString, retries, timeout);
+		setTarget(ip, comString, version, retries, timeout);
 		
-		makeEditAction(ip, interval, comString, retries, timeout);
+		makeEditAction(ip, interval, comString, version, retries, timeout);
 	}
 	
-	private void makeEditAction(String ip, long interval, String comString, int retries, long timeout) {
+	private void makeEditAction(String ip, long interval, String comString, SnmpVersion version, int retries, long timeout) {
 		Action act = new Action(Permission.READ, new EditAgentHandler());
-		act.addParameter(new Parameter("ip", ValueType.STRING, new Value(ip.split("/")[0])));
-		act.addParameter(new Parameter("port", ValueType.STRING, new Value(ip.split("/")[1])));
-		act.addParameter(new Parameter("refreshInterval", ValueType.NUMBER, new Value(interval)));
-		act.addParameter(new Parameter("communityString", ValueType.STRING, new Value(comString)));
-		act.addParameter(new Parameter("retries", ValueType.NUMBER, new Value(retries)));
+		act.addParameter(new Parameter("IP", ValueType.STRING, new Value(ip.split("/")[0])));
+		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(ip.split("/")[1])));
+		act.addParameter(new Parameter("Refresh Interval", ValueType.NUMBER, new Value(interval)));
+		act.addParameter(new Parameter("Community String", ValueType.STRING, new Value(comString)));
+		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c"), new Value(version.toString())));
+		act.addParameter(new Parameter("Retries", ValueType.NUMBER, new Value(retries)));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(timeout)));
 		//act.addParameter(new Parameter("security level", ValueType.NUMBER, new Value(securityLevel)));
 		node.createChild("edit").setAction(act).build().setSerializable(false);
@@ -60,33 +63,36 @@ class AgentNode extends SnmpNode {
 	
 	class EditAgentHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			String ip = event.getParameter("ip", ValueType.STRING).getString() + "/" 
-					+ event.getParameter("port", ValueType.STRING).getString();
-			interval = event.getParameter("refreshInterval", ValueType.NUMBER).getNumber().longValue();
-			String comStr = event.getParameter("communityString", ValueType.STRING).getString();
-			int retries = event.getParameter("retries", ValueType.NUMBER).getNumber().intValue();
+			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
+					+ event.getParameter("Port", ValueType.STRING).getString();
+			interval = event.getParameter("Refresh Interval", ValueType.NUMBER).getNumber().longValue();
+			String comStr = event.getParameter("Community String", ValueType.STRING).getString();
+			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
+			if (version == null) version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
+			if (version == null) version = SnmpVersion.v2c;
+			int retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			//int securityLevel = event.getParameter("security level", ValueType.NUMBER).getNumber().intValue();
-			node.setAttribute("interval", new Value(interval));
-			node.setAttribute("ip", new Value(ip));
-			node.setAttribute("communityString", new Value(comStr));
-			node.setAttribute("retries", new Value(retries));
-			node.setAttribute("timeout", new Value(timeout));
-			setTarget(ip, comStr, retries, timeout);
+			node.setAttribute("Refresh Interval", new Value(interval));
+			node.setAttribute("IP", new Value(ip));
+			node.setAttribute("Community String", new Value(comStr));
+			node.setAttribute("Retries", new Value(retries));
+			node.setAttribute("Timeout", new Value(timeout));
+			setTarget(ip, comStr, version, retries, timeout);
 			node.removeChild("edit");
-			makeEditAction(ip, interval, comStr, retries, timeout);
+			makeEditAction(ip, interval, comStr, version, retries, timeout);
 			
 		}
 	}
 	
-	protected void setTarget(String ip, String comString, int retries, long timeout) {
+	protected void setTarget(String ip, String comString, SnmpVersion version, int retries, long timeout) {
 		target = new CommunityTarget();
 		target.setCommunity(new OctetString(comString));
 		Address ad = GenericAddress.parse("udp:"+ip);
 		target.setAddress(ad);
 		target.setRetries(retries);
 		target.setTimeout(timeout);
-		target.setVersion(SnmpConstants.version2c);
+		target.setVersion(version.getVersion());
 		//target.setSecurityLevel(securityLevel);
 	}
 	

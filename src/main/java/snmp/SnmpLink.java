@@ -39,6 +39,7 @@ import org.snmp4j.TransportMapping;
 import org.snmp4j.mp.MPv1;
 import org.snmp4j.mp.MPv2c;
 import org.snmp4j.mp.MPv3;
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.security.SecurityProtocols;
 import org.snmp4j.security.USM;
 import org.snmp4j.smi.Address;
@@ -71,7 +72,7 @@ public class SnmpLink {
 	}
 	
 	public static void start(Node parent) {
-		Node node = parent.createChild("SNMP").build();
+		Node node = parent;
 		final SnmpLink link = new SnmpLink(node);
 		link.init();
 	}
@@ -154,12 +155,13 @@ public class SnmpLink {
 		restoreLastSession();
 		
 		Action act = new Action(Permission.READ, new AddAgentHandler());
-		act.addParameter(new Parameter("name", ValueType.STRING));
-		act.addParameter(new Parameter("ip", ValueType.STRING));
-		act.addParameter(new Parameter("port", ValueType.STRING, new Value(161)));
-		act.addParameter(new Parameter("refreshInterval", ValueType.NUMBER));
-		act.addParameter(new Parameter("communityString", ValueType.STRING, new Value("public")));
-		act.addParameter(new Parameter("retries", ValueType.NUMBER, new Value(2)));
+		act.addParameter(new Parameter("Name", ValueType.STRING));
+		act.addParameter(new Parameter("IP", ValueType.STRING));
+		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(161)));
+		act.addParameter(new Parameter("Refresh Interval", ValueType.NUMBER));
+		act.addParameter(new Parameter("Community String", ValueType.STRING, new Value("public")));
+		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c")));
+		act.addParameter(new Parameter("Retries", ValueType.NUMBER, new Value(2)));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(1500)));
 		//act.addParameter(new Parameter("security level", ValueType.NUMBER, new Value(0)));
 		node.createChild("addAgent").setAction(act).build().setSerializable(false);
@@ -174,15 +176,19 @@ public class SnmpLink {
 	private void restoreLastSession() {
 		if (node.getChildren() == null) return;
 		for (Node child: node.getChildren().values()) {
-			Value ip = child.getAttribute("ip");
-			Value interval = child.getAttribute("interval");
-			Value comStr = child.getAttribute("communityString");
-			Value retries = child.getAttribute("retries");
-			Value timeout = child.getAttribute("timeout");
+			Value ip = child.getAttribute("IP");
+			Value interval = child.getAttribute("Refresh Interval");
+			Value comStr = child.getAttribute("Community String");
+			Value version = child.getAttribute("SNMP Version");
+			Value retries = child.getAttribute("Retries");
+			Value timeout = child.getAttribute("Timeout");
 			//Value secLvl = child.getAttribute("security level");
-			if (ip != null && interval != null && comStr != null && retries != null && timeout != null) {
+			if (ip != null && interval != null && comStr != null && retries != null
+					&& timeout != null && version != null) {
+				SnmpVersion v = SnmpVersion.parse(version.getString());
+				if (v == null) v = SnmpVersion.v2c;
 				AgentNode an = new AgentNode(this, child, ip.getString(),
-						interval.getNumber().longValue(), comStr.getString(), 
+						interval.getNumber().longValue(), comStr.getString(), v,
 						retries.getNumber().intValue(), timeout.getNumber().longValue());
 				an.restoreLastSession();
 			} else if (child.getAction() == null && child.getName() != "MIBs") {
@@ -345,19 +351,44 @@ public class SnmpLink {
 	
 	private class AddAgentHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			String ip = event.getParameter("ip", ValueType.STRING).getString() + "/" 
-					+ event.getParameter("port", ValueType.STRING).getString();
-			String name = event.getParameter("name", ValueType.STRING).getString();
-			long interval = event.getParameter("refreshInterval", ValueType.NUMBER).getNumber().longValue();
-			String comStr = event.getParameter("communityString", ValueType.STRING).getString();
-			int retries = event.getParameter("retries", ValueType.NUMBER).getNumber().intValue();
+			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
+					+ event.getParameter("Port", ValueType.STRING).getString();
+			String name = event.getParameter("Name", ValueType.STRING).getString();
+			long interval = event.getParameter("Refresh Interval", ValueType.NUMBER).getNumber().longValue();
+			String comStr = event.getParameter("Community String", ValueType.STRING).getString();
+			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
+			if (version == null) version = SnmpVersion.v2c; 
+			int retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			//int secLvl = event.getParameter("security level", ValueType.NUMBER).getNumber().intValue();
 			Node child = node.createChild(name).build();
-			new AgentNode(getMe(), child, ip, interval, comStr, retries, timeout);
+			new AgentNode(getMe(), child, ip, interval, comStr, version, retries, timeout);
 		}
 	}
 	
+	enum SnmpVersion {
+		v1 ("1", SnmpConstants.version1), 
+		v2c ("2c", SnmpConstants.version2c);
+		private String str;
+		private int vnum;
+		private SnmpVersion(String str, int ver) {
+			this.str = str;
+			this.vnum = ver;
+		}
+		@Override
+		public String toString() {
+			return str;
+		}
+		public int getVersion() {
+			return vnum;
+		}
+		public static SnmpVersion parse(String str) {
+			for (SnmpVersion v: SnmpVersion.values()) {
+				if (v.toString().equals(str)) return v;
+			}
+			return null;
+		}
+		}
 
 	
     void setupOID(Node child, final AgentNode agent) {
