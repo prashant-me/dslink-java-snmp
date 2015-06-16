@@ -20,7 +20,9 @@ The dslink will catch any traps sent to it and store them in 'TRAPS', under the 
 
 For walk results and incoming traps, the dslink will automatically parse OIDs into names using the standard IANA and 
 IETF MIB files, as well as any user-defined MIB files. The 'MIBs' node displays all user-defined MIB files and allows
-you to remove them. Invoke this node's 'add MIB' action with the full text of the MIB to add a new MIB file.
+you to remove them. Invoke this node's 'add MIB' action with the full text of the MIB to add a new MIB file. 
+
+Note: If the MIB does not get added, it most likely contains syntax errors. smilint (https://www.ibr.cs.tu-bs.de/projects/libsmi/tools) is a good tool for checking MIB syntax. Additionally, smidump (same link) can be used to convert between SMIv1 and SMIv2. This dslink supports both formats, but will not load MIBs that mix the two. smidump can be useful for converting such a MIB to only use one of the formats.
 
 ##Internals
 
