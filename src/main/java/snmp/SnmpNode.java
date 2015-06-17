@@ -13,16 +13,20 @@ import org.dsa.iot.dslink.node.value.ValueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snmp4j.PDU;
+import org.snmp4j.ScopedPDU;
 import org.snmp4j.Snmp;
 import org.snmp4j.event.ResponseEvent;
 import org.snmp4j.event.ResponseListener;
 import org.snmp4j.smi.AbstractVariable;
 import org.snmp4j.smi.AssignableFromString;
 import org.snmp4j.smi.OID;
+import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.SMIConstants;
 import org.snmp4j.smi.Variable;
 import org.snmp4j.smi.VariableBinding;
 import org.vertx.java.core.Handler;
+
+import snmp.SnmpLink.SnmpVersion;
 
 public class SnmpNode {
 	static private final Logger LOGGER;
@@ -148,7 +152,21 @@ public class SnmpNode {
 	}
 	
 	void sendGetRequest(final Node response) {
-		PDU pdu = new PDU();
+		PDU pdu;
+		if (root.getVersion() == SnmpVersion.v3) {
+			ScopedPDU spdu = new ScopedPDU();
+			OctetString contextEngineId = AgentNode.createOctetString(root.node.getAttribute("Context Engine").getString());
+	        OctetString contextName = AgentNode.createOctetString(root.node.getAttribute("Context Name").getString());
+	        if (contextEngineId.length() > 0) {
+	        	spdu.setContextEngineID(contextEngineId);
+	        }
+	        if (contextName.length() > 0) {
+	        	spdu.setContextName(contextName);
+	        }
+	        pdu = spdu;
+		} else {
+			pdu = new PDU();
+		}
 		final String oid = response.getAttribute("oid").getString();
 		pdu.add(new VariableBinding(new OID(oid)));
 		pdu.setType(PDU.GET);

@@ -158,12 +158,19 @@ public class SnmpLink {
 		act.addParameter(new Parameter("Name", ValueType.STRING));
 		act.addParameter(new Parameter("IP", ValueType.STRING));
 		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(161)));
-		act.addParameter(new Parameter("Refresh Interval", ValueType.NUMBER));
+		act.addParameter(new Parameter("Refresh Interval", ValueType.NUMBER, new Value(5)));
+		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c", "3")));
 		act.addParameter(new Parameter("Community String", ValueType.STRING, new Value("public")));
-		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c")));
+		act.addParameter(new Parameter("Security Name", ValueType.STRING, new Value("")));
+		act.addParameter(new Parameter("Auth Protocol", ValueType.makeEnum("NONE", "MD5", "SHA")));
+		act.addParameter(new Parameter("Auth Passphrase", ValueType.STRING, new Value("")));
+		act.addParameter(new Parameter("Priv Protocol", ValueType.makeEnum("NONE", "DES", "AES128", "AES192", "AES256")));
+		act.addParameter(new Parameter("Priv Passphrase", ValueType.STRING, new Value("")));
+		act.addParameter(new Parameter("Engine ID", ValueType.STRING, new Value("")));
+		act.addParameter(new Parameter("Context Engine", ValueType.STRING, new Value("")));
+		act.addParameter(new Parameter("Context Name", ValueType.STRING, new Value("")));
 		act.addParameter(new Parameter("Retries", ValueType.NUMBER, new Value(2)));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(1500)));
-		//act.addParameter(new Parameter("security level", ValueType.NUMBER, new Value(0)));
 		node.createChild("addAgent").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new AddMibHandler());
 		Parameter param = new Parameter("MIB Text", ValueType.STRING);
@@ -180,16 +187,22 @@ public class SnmpLink {
 			Value interval = child.getAttribute("Refresh Interval");
 			Value comStr = child.getAttribute("Community String");
 			Value version = child.getAttribute("SNMP Version");
+			Value secName = child.getAttribute("Security Name");
+			Value authProt = child.getAttribute("Auth Protocol");
+			Value authPass = child.getAttribute("Auth Passphrase");
+			Value privProt = child.getAttribute("Priv Protocol");
+			Value privPass = child.getAttribute("Priv Passphrase");
+			Value engine = child.getAttribute("Engine ID");
+			Value cEngine = child.getAttribute("Context Engine");
+			Value cName = child.getAttribute("Context Name");
 			Value retries = child.getAttribute("Retries");
 			Value timeout = child.getAttribute("Timeout");
-			//Value secLvl = child.getAttribute("security level");
-			if (ip != null && interval != null && comStr != null && retries != null
-					&& timeout != null && version != null) {
-				SnmpVersion v = SnmpVersion.parse(version.getString());
-				if (v == null) v = SnmpVersion.v2c;
-				AgentNode an = new AgentNode(this, child, ip.getString(),
-						interval.getNumber().longValue(), comStr.getString(), v,
-						retries.getNumber().intValue(), timeout.getNumber().longValue());
+			if (ip!=null && interval!=null && comStr!=null && retries!=null && 
+					timeout!=null && version!=null && secName!=null && authProt!=null
+					&& authPass!=null && privProt!=null && privPass!=null && 
+					engine!=null && cEngine!=null && cName!=null) {
+
+				AgentNode an = new AgentNode(this, child);
 				an.restoreLastSession();
 			} else if (child.getAction() == null && child.getName() != "MIBs") {
 				node.removeChild(child);
@@ -351,24 +364,52 @@ public class SnmpLink {
 	
 	private class AddAgentHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
+			String comStr="N/A", secName="N/A", authProt="N/A", authPass="N/A",
+					privProt="N/A", privPass="N/A", engine="N/A", cEngine="N/A", cName="N/A";
 			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
 					+ event.getParameter("Port", ValueType.STRING).getString();
 			String name = event.getParameter("Name", ValueType.STRING).getString();
 			long interval = event.getParameter("Refresh Interval", ValueType.NUMBER).getNumber().longValue();
-			String comStr = event.getParameter("Community String", ValueType.STRING).getString();
 			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
 			if (version == null) version = SnmpVersion.v2c; 
+			if (version != SnmpVersion.v3) {
+				comStr = event.getParameter("Community String", ValueType.STRING).getString();
+			} else {
+				secName = event.getParameter("Security Name", ValueType.STRING).getString();
+				authProt = event.getParameter("Auth Protocol").getString();
+				authPass = event.getParameter("Auth Passphrase", ValueType.STRING).getString();
+				privProt = event.getParameter("Priv Protocol").getString();
+				privPass = event.getParameter("Priv Passphrase", ValueType.STRING).getString();
+				engine = event.getParameter("Engine ID", ValueType.STRING).getString();
+				cEngine = event.getParameter("Context Engine", ValueType.STRING).getString();
+				cName = event.getParameter("Context Name", ValueType.STRING).getString();
+			}
 			int retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
-			//int secLvl = event.getParameter("security level", ValueType.NUMBER).getNumber().intValue();
+			
 			Node child = node.createChild(name).build();
-			new AgentNode(getMe(), child, ip, interval, comStr, version, retries, timeout);
+			child.setAttribute("Refresh Interval", new Value(interval));
+			child.setAttribute("ip", new Value(ip));
+			child.setAttribute("Community String", new Value(comStr));
+			child.setAttribute("SNMP Version", new Value(version.toString()));
+			child.setAttribute("Security Name", new Value(secName));
+			child.setAttribute("Auth Protocol", new Value(authProt));
+			child.setAttribute("Auth Passphrase", new Value(authPass));
+			child.setAttribute("Priv Protocol", new Value(privProt));
+			child.setAttribute("Priv Passphrase", new Value(privPass));
+			child.setAttribute("Engine ID", new Value(engine));
+			child.setAttribute("Context Engine", new Value(cEngine));
+			child.setAttribute("Context Name", new Value(cName));
+			child.setAttribute("Retries", new Value(retries));
+			child.setAttribute("Timeout", new Value(timeout));
+			new AgentNode(getMe(), child);
 		}
 	}
 	
 	enum SnmpVersion {
 		v1 ("1", SnmpConstants.version1), 
-		v2c ("2c", SnmpConstants.version2c);
+		v2c ("2c", SnmpConstants.version2c),
+		v3 ("3", SnmpConstants.version3);
 		private String str;
 		private int vnum;
 		private SnmpVersion(String str, int ver) {
