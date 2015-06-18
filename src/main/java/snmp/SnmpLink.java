@@ -158,7 +158,7 @@ public class SnmpLink {
 		act.addParameter(new Parameter("Name", ValueType.STRING));
 		act.addParameter(new Parameter("IP", ValueType.STRING));
 		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(161)));
-		act.addParameter(new Parameter("Refresh Interval", ValueType.NUMBER, new Value(5)));
+		act.addParameter(new Parameter("Polling Interval", ValueType.NUMBER, new Value(5)));
 		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c", "3")));
 		act.addParameter(new Parameter("Community String", ValueType.STRING, new Value("public")));
 		act.addParameter(new Parameter("Security Name", ValueType.STRING, new Value("")));
@@ -184,7 +184,7 @@ public class SnmpLink {
 		if (node.getChildren() == null) return;
 		for (Node child: node.getChildren().values()) {
 			Value ip = child.getAttribute("IP");
-			Value interval = child.getAttribute("Refresh Interval");
+			Value interval = child.getAttribute("Polling Interval");
 			Value comStr = child.getAttribute("Community String");
 			Value version = child.getAttribute("SNMP Version");
 			Value secName = child.getAttribute("Security Name");
@@ -369,7 +369,7 @@ public class SnmpLink {
 			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
 					+ event.getParameter("Port", ValueType.STRING).getString();
 			String name = event.getParameter("Name", ValueType.STRING).getString();
-			long interval = event.getParameter("Refresh Interval", ValueType.NUMBER).getNumber().longValue();
+			long interval = event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().longValue();
 			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
 			if (version == null) version = SnmpVersion.v2c; 
 			if (version != SnmpVersion.v3) {
@@ -388,7 +388,7 @@ public class SnmpLink {
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			
 			Node child = node.createChild(name).build();
-			child.setAttribute("Refresh Interval", new Value(interval));
+			child.setAttribute("Polling Interval", new Value(interval));
 			child.setAttribute("ip", new Value(ip));
 			child.setAttribute("Community String", new Value(comStr));
 			child.setAttribute("SNMP Version", new Value(version.toString()));

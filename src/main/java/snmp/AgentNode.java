@@ -35,7 +35,7 @@ class AgentNode extends SnmpNode {
 	AgentNode(SnmpLink slink, Node mynode) {
 		super(slink, mynode);
 		root = this;
-		this.interval = node.getAttribute("Refresh Interval").getNumber().longValue();
+		this.interval = node.getAttribute("Polling Interval").getNumber().longValue();
 
 		final Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
 		String emptyjson = new JsonArray().toString();
@@ -58,7 +58,7 @@ class AgentNode extends SnmpNode {
 		String ip = node.getAttribute("ip").getString();
 		act.addParameter(new Parameter("IP", ValueType.STRING, new Value(ip.split("/")[0])));
 		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(ip.split("/")[1])));
-		act.addParameter(new Parameter("Refresh Interval", ValueType.NUMBER, new Value(interval)));
+		act.addParameter(new Parameter("Polling Interval", ValueType.NUMBER, new Value(interval)));
 		act.addParameter(new Parameter("Community String", ValueType.STRING, node.getAttribute("Community String")));
 		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c", "3"), node.getAttribute("SNMP Version")));
 		act.addParameter(new Parameter("Security Name", ValueType.STRING, node.getAttribute("Security Name")));
@@ -78,7 +78,7 @@ class AgentNode extends SnmpNode {
 		public void handle(ActionResult event) {
 			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
 					+ event.getParameter("Port", ValueType.STRING).getString();
-			interval = event.getParameter("Refresh Interval", ValueType.NUMBER).getNumber().longValue();
+			interval = event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().longValue();
 			String comStr = event.getParameter("Community String", ValueType.STRING).getString();
 			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
 			if (version == null) version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
@@ -94,7 +94,7 @@ class AgentNode extends SnmpNode {
 			int retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			
-			node.setAttribute("Refresh Interval", new Value(interval));
+			node.setAttribute("Polling Interval", new Value(interval));
 			node.setAttribute("IP", new Value(ip));
 			node.setAttribute("SNMP Version", new Value(version.toString()));
 			node.setAttribute("Community String", new Value(comStr));
