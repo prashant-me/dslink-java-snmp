@@ -25,6 +25,7 @@ import org.snmp4j.smi.SMIConstants;
 import org.snmp4j.smi.Variable;
 import org.snmp4j.smi.VariableBinding;
 import org.vertx.java.core.Handler;
+import org.vertx.java.core.json.JsonObject;
 
 import snmp.SnmpLink.SnmpVersion;
 
@@ -43,18 +44,28 @@ public class SnmpNode {
 		this.snmp = link.snmp;
 		
 		Action act = new Action(Permission.READ, new GetHandler());
-		act.addParameter(new Parameter("name", ValueType.STRING));
+		act.addParameter(new Parameter("Name", ValueType.STRING));
 		act.addParameter(new Parameter("OID", ValueType.STRING));
 		node.createChild("addOID").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new RemoveHandler());
 		node.createChild("remove").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new AddFolderHandler());
-		act.addParameter(new Parameter("name", ValueType.STRING));
+		act.addParameter(new Parameter("Name", ValueType.STRING));
 		node.createChild("addFolder").setAction(act).build().setSerializable(false);
 		act = new Action(Permission.READ, new WalkHandler());
-		act.addParameter(new Parameter("name", ValueType.STRING));
+		act.addParameter(new Parameter("Name", ValueType.STRING));
 		act.addParameter(new Parameter("OID", ValueType.STRING, new Value("0.0")));
 		node.createChild("walk").setAction(act).build().setSerializable(false);
+		
+		if (!(this instanceof AgentNode)) {
+			act = new Action(Permission.READ, new RenameHandler());
+			act.addParameter(new Parameter("Name", ValueType.STRING, new Value(node.getName())));
+			node.createChild("rename").setAction(act).build().setSerializable(false);
+		}
+		
+		act = new Action(Permission.READ, new CopyHandler());
+		act.addParameter(new Parameter("Name", ValueType.STRING));
+		node.createChild("make copy").setAction(act).build().setSerializable(false);
 	}
 	
 	SnmpNode(SnmpLink slink, Node mynode, AgentNode anode) {
@@ -68,7 +79,7 @@ public class SnmpNode {
 	
 	class WalkHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			final String name = event.getParameter("name", ValueType.STRING).getString();
+			final String name = event.getParameter("Name", ValueType.STRING).getString();
 			String oid = event.getParameter("OID", ValueType.STRING).getString();
 			if (oid.charAt(0)=='.') oid = oid.substring(1);
 			Node response = node.createChild(name).build();
@@ -123,7 +134,7 @@ public class SnmpNode {
 	
 	class AddFolderHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			String name = event.getParameter("name", ValueType.STRING).getString();
+			String name = event.getParameter("Name", ValueType.STRING).getString();
 			new SnmpNode(link, node.createChild(name).build(), root);
 		}
 	}
@@ -131,15 +142,57 @@ public class SnmpNode {
 	
 	class RemoveHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			node.clearChildren();
-			node.getParent().removeChild(node);
+			remove();
 		}
-		
+	}
+	
+	void remove() {
+		node.clearChildren();
+		node.getParent().removeChild(node);
+	}
+	
+	protected class CopyHandler implements Handler<ActionResult> {
+		public void handle(ActionResult event) {
+			String newname = event.getParameter("Name", ValueType.STRING).getString();
+			if (newname.length() > 0 && !newname.equals(node.getName())) duplicate(newname);
+		}
+	}
+	
+	protected class RenameHandler implements Handler<ActionResult> {
+		public void handle(ActionResult event) {
+			String newname = event.getParameter("Name", ValueType.STRING).getString();
+			if (newname.length() > 0 && !newname.equals(node.getName())) rename(newname);
+		}
+	}
+	
+	protected void rename(String newname) {
+		duplicate(newname);
+		remove();
+	}
+
+	protected void duplicate(String name) {
+		JsonObject jobj = link.copySerializer.serialize();
+		JsonObject parentobj = getParentJson(jobj);
+		JsonObject nodeobj = parentobj.getObject(node.getName());
+		parentobj.putObject(name, nodeobj);
+		link.copyDeserializer.deserialize(jobj);
+		Node newnode = node.getParent().getChild(name);
+		SnmpNode sf = new SnmpNode(link, newnode, root);
+		sf.restoreLastSession();
+	}
+
+	protected JsonObject getParentJson(JsonObject jobj) {
+		return getParentJson(jobj, node);
+	}
+
+	private JsonObject getParentJson(JsonObject jobj, Node n) {
+		if (n == root.node) return jobj;
+		else return getParentJson(jobj, n.getParent()).getObject(n.getParent().getName());
 	}
 	
 	class GetHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			final String name = event.getParameter("name", ValueType.STRING).getString();
+			final String name = event.getParameter("Name", ValueType.STRING).getString();
 			String oid = event.getParameter("OID", ValueType.STRING).getString();
 			if (oid.charAt(0)=='.') oid = oid.substring(1);
 			NodeBuilder builder = node.createChild(name);
@@ -263,21 +316,7 @@ public class SnmpNode {
 				SnmpNode sn = new SnmpNode(link, child, root);
 				sn.restoreLastSession();
 			} else if (restoreType != null && restoreType.getString().equals("walk")) {
-				if (child.getChildren() != null) {
-					for (Node subchild: child.getChildren().values()) {
-						if (subchild.getValue() != null) {
-							createOidActions(subchild);
-							link.setupOID(subchild, root);
-						}
-					}
-				}
-				final String name = child.getName();
-				Action act = new Action(Permission.READ, new Handler<ActionResult>() {
-					public void handle(ActionResult event) {
-						node.removeChild(name);
-					}
-				});
-				child.createChild("remove").setAction(act).build().setSerializable(false);
+				restoreWalk(child);
 			} else if (child.getValue() != null) {
 				if (root == this && child.getName() == "TRAPS") {
 					
@@ -290,6 +329,55 @@ public class SnmpNode {
 			}
 		}
 	}
+	
+	private void restoreWalk(final Node wnode) {
+		if (wnode.getChildren() != null) {
+			for (Node subchild: wnode.getChildren().values()) {
+				if (subchild.getValue() != null) {
+					createOidActions(subchild);
+					link.setupOID(subchild, root);
+				}
+			}
+		}
+		Action act = new Action(Permission.READ, new Handler<ActionResult>() {
+			public void handle(ActionResult event) {
+				node.removeChild(wnode);
+			}
+		});
+		wnode.createChild("remove").setAction(act).build().setSerializable(false);
+		act = new Action(Permission.READ, new Handler<ActionResult>() {
+			public void handle(ActionResult event) {
+				String newname = event.getParameter("Name", ValueType.STRING).getString();
+				if (newname.trim().length() > 1 && !newname.equals(wnode.getName())) {
+					copywalk(wnode, newname);
+					node.removeChild(wnode);
+				}
+			}
+		});
+		act.addParameter(new Parameter("Name", ValueType.STRING));
+		wnode.createChild("rename").setAction(act).build().setSerializable(false);
+		act = new Action(Permission.READ, new Handler<ActionResult>() {
+			public void handle(ActionResult event) {
+				String newname = event.getParameter("Name", ValueType.STRING).getString();
+				if (newname.trim().length() > 1 && !newname.equals(wnode.getName())) {
+					copywalk(wnode, newname);
+				}
+			}
+		});
+		act.addParameter(new Parameter("Name", ValueType.STRING));
+		wnode.createChild("make copy").setAction(act).build().setSerializable(false);
+	}
+	
+	protected void copywalk(Node wnode, String name) {
+		JsonObject jobj = link.copySerializer.serialize();
+		JsonObject parentobj = getParentJson(jobj).getObject(node.getName());
+		JsonObject walkobj = parentobj.getObject(wnode.getName());
+		parentobj.putObject(name, walkobj);
+		link.copyDeserializer.deserialize(jobj);
+		Node newnode = node.getChild(name);
+		restoreWalk(newnode);
+	}
+	
 	
 	
 }

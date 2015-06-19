@@ -27,6 +27,8 @@ import org.dsa.iot.dslink.node.actions.EditorType;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.serializer.Deserializer;
+import org.dsa.iot.dslink.serializer.Serializer;
 import org.dsa.iot.dslink.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,18 +64,22 @@ public class SnmpLink {
 	Snmp snmp;
 	private final Map<Node, ScheduledFuture<?>> futures;
 	private MibLoader mibLoader;
+	Serializer copySerializer;
+	Deserializer copyDeserializer;
 	private static final File MIB_STORE = new File(".mib_store");
 	
-	private SnmpLink(Node node) {
+	private SnmpLink(Node node, Serializer ser, Deserializer deser) {
 		this.node = node;
 		this.mibnode = node.createChild("MIBs").build();
 		this.mibnode.setSerializable(false);
+		this.copySerializer = ser;
+		this.copyDeserializer = deser;
 		this.futures = new ConcurrentHashMap<>();
 	}
 	
-	public static void start(Node parent) {
+	public static void start(Node parent, Serializer copyser, Deserializer copydeser) {
 		Node node = parent;
-		final SnmpLink link = new SnmpLink(node);
+		final SnmpLink link = new SnmpLink(node, copyser, copydeser);
 		link.init();
 	}
 	

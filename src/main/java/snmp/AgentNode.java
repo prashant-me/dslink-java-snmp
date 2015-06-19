@@ -1,6 +1,5 @@
 package snmp;
 
-
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
@@ -24,6 +23,7 @@ import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.json.JsonArray;
+import org.vertx.java.core.json.JsonObject;
 
 import snmp.SnmpLink.SnmpVersion;
 
@@ -56,6 +56,7 @@ class AgentNode extends SnmpNode {
 	private void makeEditAction() {
 		Action act = new Action(Permission.READ, new EditAgentHandler());
 		String ip = node.getAttribute("ip").getString();
+		act.addParameter(new Parameter("Name", ValueType.STRING, new Value(node.getName())));
 		act.addParameter(new Parameter("IP", ValueType.STRING, new Value(ip.split("/")[0])));
 		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(ip.split("/")[1])));
 		act.addParameter(new Parameter("Polling Interval", ValueType.NUMBER, new Value(interval)));
@@ -76,6 +77,7 @@ class AgentNode extends SnmpNode {
 	
 	class EditAgentHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
+			String name = event.getParameter("Name", ValueType.STRING).getString();
 			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
 					+ event.getParameter("Port", ValueType.STRING).getString();
 			interval = event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().longValue();
@@ -108,11 +110,29 @@ class AgentNode extends SnmpNode {
 			node.setAttribute("Context Name", new Value(cName));
 			node.setAttribute("Retries", new Value(retries));
 			node.setAttribute("Timeout", new Value(timeout));
+			
+			if (!name.equals(node.getName())) {
+				rename(name);
+			}
+			
 			setTarget();
 			node.removeChild("edit");
 			makeEditAction();
 			
 		}
+	}
+	
+	@Override
+	protected void duplicate(String name) {
+		JsonObject jobj = link.copySerializer.serialize();
+		JsonObject nodeobj = jobj.getObject(node.getName());
+		jobj.putObject(name, nodeobj);
+		link.copyDeserializer.deserialize(jobj);
+		Node newnode = node.getParent().getChild(name);
+		AgentNode an = new AgentNode(link, newnode);
+		an.restoreLastSession();
+		return;
+		
 	}
 	
 	public SnmpVersion getVersion() {
