@@ -5,10 +5,12 @@ import java.io.IOException;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.Permission;
+import org.dsa.iot.dslink.node.Writable;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -251,23 +253,28 @@ public class SnmpNode {
 	void createOidActions(Node valnode) {
 		Action act = new Action(Permission.READ, new RemoveOidHandler(valnode));
 	    valnode.createChild("remove").setAction(act).build().setSerializable(false);
-	    act = new Action(Permission.READ, new SetHandler(valnode));
-	    act.addParameter(new Parameter("value", ValueType.STRING));
-	    valnode.createChild("set").setAction(act).build().setSerializable(false);
+	    
+	    valnode.setWritable(Writable.WRITE);
+		valnode.getListener().setValueHandler(new SetHandler(valnode));
+		
+//	    act = new Action(Permission.READ, new SetHandler(valnode));
+//	    act.addParameter(new Parameter("value", ValueType.STRING));
+//	    valnode.createChild("set").setAction(act).build().setSerializable(false);
 	    
 	}
 	
-	class SetHandler implements Handler<ActionResult> {
+	class SetHandler implements Handler<ValuePair> {
 		private Node vnode;
 		SetHandler(Node valnode) {
 			vnode = valnode;
 		}
-		public void handle(ActionResult event) {
+		public void handle(ValuePair event) {
+			if (!event.isFromExternalSource()) return;
 			PDU pdu = new PDU();
 			Value oid = vnode.getAttribute("oid");
 			Value syntax = vnode.getAttribute("syntax");
 			if (oid == null || syntax == null) return;
-			String valstring = event.getParameter("value", ValueType.STRING).getString();
+			String valstring = event.getCurrent().getString();
 			int syntaxInt = syntax.getNumber().intValue();
 			if (syntaxInt == SMIConstants.SYNTAX_NULL) return;
 			Variable val = AbstractVariable.createFromSyntax(syntaxInt);
@@ -286,7 +293,7 @@ public class SnmpNode {
 //			}
 			pdu.setType(PDU.SET);
 			try {
-				LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
+				LOGGER.info("sending pdu: " + pdu + "   to target: " + root.target);
 				snmp.send(pdu, root.target, null, null);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
