@@ -15,9 +15,9 @@ repositories {
 }
  
 dependencies {
-    compile 'org.iot-dsa:dslink:0.3.0-SNAPSHOT'
+    compile 'org.iot-dsa:dslink:0.3.0'
     compile fileTree('external')
- 	compile fileTree('mibble/lib')
+    compile fileTree('mibble/lib')
     compile 'org.apache.servicemix.bundles:org.apache.servicemix.bundles.snmp4j:2.3.3_1'
 
 
