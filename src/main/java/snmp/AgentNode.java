@@ -72,7 +72,9 @@ class AgentNode extends SnmpNode {
 		act.addParameter(new Parameter("Context Name", ValueType.STRING, node.getAttribute("Context Name")));
 		act.addParameter(new Parameter("Retries", ValueType.NUMBER, node.getAttribute("Retries")));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, node.getAttribute("Timeout")));
-		node.createChild("edit").setAction(act).build().setSerializable(false);
+		Node anode = node.getChild("edit");
+		if (anode == null) node.createChild("edit").setAction(act).build().setSerializable(false);
+		else anode.setAction(act);
 	}
 	
 	class EditAgentHandler implements Handler<ActionResult> {
@@ -116,7 +118,6 @@ class AgentNode extends SnmpNode {
 			}
 			
 			setTarget();
-			node.removeChild("edit");
 			makeEditAction();
 			
 		}
