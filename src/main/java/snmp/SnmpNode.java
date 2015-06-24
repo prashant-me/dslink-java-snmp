@@ -76,7 +76,7 @@ public class SnmpNode {
 	}
 	
 	static {
-        LOGGER = LoggerFactory.getLogger(SnmpLink.class);
+        LOGGER = LoggerFactory.getLogger(SnmpNode.class);
     }
 	
 	class WalkHandler implements Handler<ActionResult> {
@@ -325,7 +325,7 @@ public class SnmpNode {
 			} else if (restoreType != null && restoreType.getString().equals("walk")) {
 				restoreWalk(child);
 			} else if (child.getValue() != null) {
-				if (root == this && child.getName() == "TRAPS") {
+				if (root == this && (child.getName().equals("TRAPS") || child.getName().equals("STATUS"))) {
 					
 				} else {
 					createOidActions(child);

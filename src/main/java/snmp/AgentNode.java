@@ -7,6 +7,8 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snmp4j.CommunityTarget;
 import org.snmp4j.UserTarget;
 import org.snmp4j.security.AuthMD5;
@@ -28,13 +30,19 @@ import org.vertx.java.core.json.JsonObject;
 import snmp.SnmpLink.SnmpVersion;
 
 class AgentNode extends SnmpNode {
+	static private final Logger LOGGER;
+	static {
+        LOGGER = LoggerFactory.getLogger(AgentNode.class);
+    }
 	
 	long interval;
 	CommunityTarget target;
+	private Node statnode;
 	
 	AgentNode(SnmpLink slink, Node mynode) {
 		super(slink, mynode);
 		root = this;
+		statnode = node.createChild("STATUS").setValueType(ValueType.STRING).setValue(new Value("Setting up agent")).build();
 		this.interval = node.getAttribute("Polling Interval").getNumber().longValue();
 
 		final Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
@@ -50,6 +58,9 @@ class AgentNode extends SnmpNode {
 		makeEditAction();
 		
 		setTarget();
+		if (target != null) {
+			statnode.setValue(new Value("Ready"));
+		}
 		
 	}
 	
@@ -118,6 +129,9 @@ class AgentNode extends SnmpNode {
 			}
 			
 			setTarget();
+			if (target != null) {
+				statnode.setValue(new Value("Ready"));
+			}
 			makeEditAction();
 			
 		}
@@ -143,6 +157,7 @@ class AgentNode extends SnmpNode {
 	}
 	
 	protected void setTarget() {
+		statnode.setValue(new Value("setting up connection to device"));
 		if (snmp.getUSM() != null) snmp.getUSM().removeAllUsers();
 		String ip = node.getAttribute("ip").getString();
 		String comString = node.getAttribute("Community String").getString();
@@ -162,9 +177,12 @@ class AgentNode extends SnmpNode {
 	                authProtocol = AuthMD5.ID;
 	            else if (authProtocolStr.equals("SHA"))
 	                authProtocol = AuthSHA.ID;
-	            else
-	                throw new IllegalArgumentException("Authentication protocol unsupported: " + authProtocolStr);
-	        }
+	            else {
+	                LOGGER.error("Authentication protocol unsupported: " + authProtocolStr);
+	                statnode.setValue(new Value("error: Authentication protocol unsupported: " + authProtocolStr));
+	                return;
+	            }
+			}
 
 	        OctetString authPassphrase = createOctetString(node.getAttribute("Auth Passphrase").getString());
 
@@ -177,8 +195,11 @@ class AgentNode extends SnmpNode {
 	                privProtocol = PrivAES192.ID;
 	            else if (privProtocolStr.equals("AES256"))
 	                privProtocol = PrivAES256.ID;
-	            else
-	                throw new IllegalArgumentException("Privacy protocol " + privProtocolStr + " not supported");
+	            else {
+	                LOGGER.error("Privacy protocol " + privProtocolStr + " not supported");
+	                statnode.setValue(new Value("error: Privacy protocol " + privProtocolStr + " not supported"));
+	                return;
+	            }
 	        }
 
 	        OctetString privPassphrase = createOctetString(node.getAttribute("Priv Passphrase").getString());
