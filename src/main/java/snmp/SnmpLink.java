@@ -375,7 +375,7 @@ public class SnmpLink {
 			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
 					+ event.getParameter("Port", ValueType.STRING).getString();
 			String name = event.getParameter("Name", ValueType.STRING).getString();
-			long interval = event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().longValue();
+			long interval = (long) (1000*event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().doubleValue());
 			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
 			if (version == null) version = SnmpVersion.v2c; 
 			if (version != SnmpVersion.v3) {
@@ -450,7 +450,7 @@ public class SnmpLink {
                     public void run() {
                     	if (event.getAttribute("oid") != null) agent.sendGetRequest(event);
                     }
-                }, 0, agent.interval, TimeUnit.SECONDS);
+                }, 0, agent.interval, TimeUnit.MILLISECONDS);
                 futures.put(event, fut);
             }
         });

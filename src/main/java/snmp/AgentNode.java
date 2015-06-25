@@ -70,7 +70,7 @@ class AgentNode extends SnmpNode {
 		act.addParameter(new Parameter("Name", ValueType.STRING, new Value(node.getName())));
 		act.addParameter(new Parameter("IP", ValueType.STRING, new Value(ip.split("/")[0])));
 		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(ip.split("/")[1])));
-		act.addParameter(new Parameter("Polling Interval", ValueType.NUMBER, new Value(interval)));
+		act.addParameter(new Parameter("Polling Interval", ValueType.NUMBER, new Value(((double)interval)/1000)));
 		act.addParameter(new Parameter("Community String", ValueType.STRING, node.getAttribute("Community String")));
 		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c", "3"), node.getAttribute("SNMP Version")));
 		act.addParameter(new Parameter("Security Name", ValueType.STRING, node.getAttribute("Security Name")));
@@ -93,7 +93,7 @@ class AgentNode extends SnmpNode {
 			String name = event.getParameter("Name", ValueType.STRING).getString();
 			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
 					+ event.getParameter("Port", ValueType.STRING).getString();
-			interval = event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().longValue();
+			interval = (long) (1000*event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().doubleValue());
 			String comStr = event.getParameter("Community String", ValueType.STRING).getString();
 			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
 			if (version == null) version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
