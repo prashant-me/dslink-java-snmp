@@ -103,7 +103,12 @@ public class SnmpLink {
 		try {
 			transport = new DefaultUdpTransportMapping();
 			if (listenAddress instanceof UdpAddress) {
-				traptransport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
+				try {
+					traptransport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
+				} catch (Exception e1) {
+					LOGGER.debug("error: ", e1);
+					traptransport = new DefaultUdpTransportMapping();
+				}
 			} else {
 				traptransport = new DefaultUdpTransportMapping();
 			}
@@ -189,7 +194,7 @@ public class SnmpLink {
 	private void restoreLastSession() {
 		if (node.getChildren() == null) return;
 		for (Node child: node.getChildren().values()) {
-			Value ip = child.getAttribute("IP");
+			Value ip = child.getAttribute("ip");
 			Value interval = child.getAttribute("Polling Interval");
 			Value comStr = child.getAttribute("Community String");
 			Value version = child.getAttribute("SNMP Version");

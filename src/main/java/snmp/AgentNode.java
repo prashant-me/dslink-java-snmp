@@ -110,7 +110,7 @@ class AgentNode extends SnmpNode {
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			
 			node.setAttribute("Polling Interval", new Value(interval));
-			node.setAttribute("IP", new Value(ip));
+			node.setAttribute("ip", new Value(ip));
 			node.setAttribute("SNMP Version", new Value(version.toString()));
 			node.setAttribute("Community String", new Value(comStr));
 			node.setAttribute("Security Name", new Value(secName));
