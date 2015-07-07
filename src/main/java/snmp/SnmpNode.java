@@ -196,14 +196,18 @@ public class SnmpNode {
 		public void handle(ActionResult event) {
 			final String name = event.getParameter("Name", ValueType.STRING).getString();
 			String oid = event.getParameter("OID", ValueType.STRING).getString();
-			if (oid.charAt(0)=='.') oid = oid.substring(1);
-			NodeBuilder builder = node.createChild(name);
-	    	builder.setValueType(ValueType.STRING);
-	    	Node response = builder.build();
-	    	response.setAttribute("oid", new Value(oid));
-		    createOidActions(response);
-		    link.setupOID(response, root);
+			addOid(name, oid, node);
 		}
+	}
+	
+	private void addOid(String name, String oid, Node fnode) {
+		if (oid.charAt(0)=='.') oid = oid.substring(1);
+		NodeBuilder builder = fnode.createChild(name);
+    	builder.setValueType(ValueType.STRING);
+    	Node response = builder.build();
+    	response.setAttribute("oid", new Value(oid));
+	    createOidActions(response);
+	    link.setupOID(response, root);
 	}
 	
 	void sendGetRequest(final Node response) {
@@ -257,9 +261,10 @@ public class SnmpNode {
 	    valnode.setWritable(Writable.WRITE);
 		valnode.getListener().setValueHandler(new SetHandler(valnode));
 		
-//	    act = new Action(Permission.READ, new SetHandler(valnode));
-//	    act.addParameter(new Parameter("value", ValueType.STRING));
-//	    valnode.createChild("set").setAction(act).build().setSerializable(false);
+	    act = new Action(Permission.READ, new EditOidHandler(valnode));
+	    act.addParameter(new Parameter("Name", ValueType.STRING, new Value(valnode.getName())));
+		act.addParameter(new Parameter("OID", ValueType.STRING, valnode.getAttribute("oid")));
+	    valnode.createChild("edit").setAction(act).build().setSerializable(false);
 	    
 	}
 	
@@ -304,15 +309,34 @@ public class SnmpNode {
 		}
 	}
 	
+	class EditOidHandler implements Handler<ActionResult> {
+		Node vnode;
+		EditOidHandler(Node valnode) {
+			vnode = valnode;
+		}
+		public void handle(ActionResult event) {
+			String name = event.getParameter("Name", ValueType.STRING).getString();
+			String oid = event.getParameter("OID", ValueType.STRING).getString();
+			Node pnode = vnode.getParent();
+			removeOid(vnode);
+			addOid(name, oid, pnode);
+		}
+	}
+	
 	class RemoveOidHandler implements Handler<ActionResult> {
 		Node toRemove;
 		RemoveOidHandler(Node valnode) {
 			toRemove = valnode;
 		}
 		public void handle(ActionResult event) {
-			node.removeChild(toRemove);
+			removeOid(toRemove);
 		}
 		
+	}
+	
+	private void removeOid(Node toRemove) {
+		toRemove.clearChildren();
+		toRemove.getParent().removeChild(toRemove);
 	}
 	
 	void restoreLastSession() {
