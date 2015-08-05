@@ -63,7 +63,7 @@ public class SnmpLink {
 	private Node mibnode;
 	Snmp snmp;
 	private final Map<Node, ScheduledFuture<?>> futures;
-	private MibLoader mibLoader;
+	final private MibLoader mibLoader = new MibLoader();
 	Serializer copySerializer;
 	Deserializer copyDeserializer;
 	private static final File MIB_STORE = new File(".mib_store");
@@ -89,7 +89,6 @@ public class SnmpLink {
 	
 	private void init() {
 		
-		mibLoader = new MibLoader();
 		if (!MIB_STORE.exists()) {
 			if (!MIB_STORE.mkdirs()) LOGGER.error("error making Mib Store directory");
 		}
@@ -442,31 +441,48 @@ public class SnmpLink {
 		}
 		}
 
+	void handleEdit(AgentNode agent) {
+		for (Node event: futures.keySet()) {
+			if (event.getMetaData() == agent) {
+				handleUnsub(agent, event);
+				handleSub(agent, event);
+			}
+		}
+	}
+	
+	private void handleSub(final AgentNode agent, final Node event) {
+		if (futures.containsKey(event)) {
+            return;
+        }
+        ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
+        ScheduledFuture<?> fut = stpe.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+            	if (event.getAttribute("oid") != null) agent.sendGetRequest(event);
+            }
+        }, 0, agent.interval, TimeUnit.MILLISECONDS);
+        futures.put(event, fut);
+	}
+	
+	private void handleUnsub(AgentNode agent, Node event) {
+		ScheduledFuture<?> fut = futures.remove(event);
+        if (fut != null) {
+            fut.cancel(false);
+        }
+	}
 	
     void setupOID(Node child, final AgentNode agent) {
+    	child.setMetaData(agent);
         child.getListener().setOnSubscribeHandler(new Handler<Node>() {
             public void handle(final Node event) {
-                if (futures.containsKey(event)) {
-                    return;
-                }
-                ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
-                ScheduledFuture<?> fut = stpe.scheduleWithFixedDelay(new Runnable() {
-                    @Override
-                    public void run() {
-                    	if (event.getAttribute("oid") != null) agent.sendGetRequest(event);
-                    }
-                }, 0, agent.interval, TimeUnit.MILLISECONDS);
-                futures.put(event, fut);
+                handleSub(agent, event);
             }
         });
 
         child.getListener().setOnUnsubscribeHandler(new Handler<Node>() {
             @Override
             public void handle(Node event) {
-                ScheduledFuture<?> fut = futures.remove(event);
-                if (fut != null) {
-                    fut.cancel(false);
-                }
+                handleUnsub(agent, event);
             }
         });
     }

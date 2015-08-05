@@ -109,6 +109,8 @@ class AgentNode extends SnmpNode {
 			int retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
 			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			
+			link.handleEdit(root);
+			
 			node.setAttribute("Polling Interval", new Value(interval));
 			node.setAttribute("ip", new Value(ip));
 			node.setAttribute("SNMP Version", new Value(version.toString()));
@@ -224,6 +226,7 @@ class AgentNode extends SnmpNode {
 		} else {
 			target = new CommunityTarget();
 			target.setCommunity(new OctetString(comString));
+			
 		}
 		
 		Address ad = GenericAddress.parse("udp:"+ip);
