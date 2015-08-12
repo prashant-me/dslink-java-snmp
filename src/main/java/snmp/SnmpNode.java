@@ -92,6 +92,12 @@ public class SnmpNode {
 			});
 			response.createChild("remove").setAction(act).build().setSerializable(false);
 			response.setAttribute("restoreType", new Value("walk"));
+			link.mibUse.add(true);
+			if (!link.mibnode.getAttribute("keep MIBs loaded").getBool()) try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				LOGGER.debug("", e);
+			}
 			walk(response, new OID(oid));
 		}
 	}
@@ -120,9 +126,12 @@ public class SnmpNode {
 		    	   createOidActions(vnode);
 		    	   link.setupOID(vnode, root);
 		    	   walk(response, noid);
+		       } else {
+		    	   link.mibUse.remove();
 		       }
 		     }
 		   };
+		
 		try {
 			LOGGER.debug("sending getnext");
 			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
@@ -131,6 +140,7 @@ public class SnmpNode {
 			// TODO Auto-generated catch block
 			//e.printStackTrace();
 			LOGGER.error("error:", e);
+			link.mibUse.remove();
 		}
 	}
 	

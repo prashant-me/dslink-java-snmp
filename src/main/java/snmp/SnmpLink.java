@@ -9,6 +9,7 @@ import java.io.Writer;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -55,32 +56,40 @@ import org.vertx.java.core.Handler;
 import org.vertx.java.core.json.JsonArray;
 import org.vertx.java.core.json.JsonObject;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 
 public class SnmpLink {
 	
 	private final static Logger LOGGER;
-	private Node node;
-	private Node mibnode;
+	Node node;
+	Node mibnode;
 	Snmp snmp;
 	private final Map<Node, ScheduledFuture<?>> futures;
-	final private MibLoader mibLoader = new MibLoader();
+
 	Serializer copySerializer;
 	Deserializer copyDeserializer;
 	private static final File MIB_STORE = new File(".mib_store");
+	final ConcurrentLinkedQueue<Boolean> mibUse = new ConcurrentLinkedQueue<Boolean>();
+	private final  ConcurrentLinkedQueue<File> newMibs = new ConcurrentLinkedQueue<File>();
+	private final  ConcurrentLinkedQueue<File> deletedMibs = new ConcurrentLinkedQueue<File>();
+	private Mib[] allMibs = new Mib[0];
+	ScheduledFuture<?> mibFuture;
 	
 	private SnmpLink(Node node, Serializer ser, Deserializer deser) {
 		this.node = node;
-		this.mibnode = node.createChild("MIBs").build();
-		this.mibnode.setSerializable(false);
+		this.mibnode = node.getChild("MIBs");
+		if (this.mibnode == null) this.mibnode = node.createChild("MIBs").build();
 		this.copySerializer = ser;
 		this.copyDeserializer = deser;
 		this.futures = new ConcurrentHashMap<>();
 	}
 	
-	public static void start(Node parent, Serializer copyser, Deserializer copydeser) {
+	public static SnmpLink start(Node parent, Serializer copyser, Deserializer copydeser) {
 		Node node = parent;
 		final SnmpLink link = new SnmpLink(node, copyser, copydeser);
 		link.init();
+		return link;
 	}
 	
 	static {
@@ -92,8 +101,9 @@ public class SnmpLink {
 		if (!MIB_STORE.exists()) {
 			if (!MIB_STORE.mkdirs()) LOGGER.error("error making Mib Store directory");
 		}
-		mibLoader.addDir(MIB_STORE);
-		loadAllMibs();
+		
+		ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
+		mibFuture = stpe.schedule(new MibThread(), 0, TimeUnit.SECONDS);
 		
 		Address listenAddress = GenericAddress.parse(System.getProperty("snmp4j.listenAddress","udp:0.0.0.0/162"));
 		TransportMapping<UdpAddress> transport;
@@ -126,9 +136,16 @@ public class SnmpLink {
 			disp.addMessageProcessingModel(new MPv3(usm));
 			
 			CommandResponder trapListener = new CommandResponder() {
+				 @SuppressFBWarnings
 			     public synchronized void processPdu(CommandResponderEvent e) {
 			    	 PDU command = e.getPDU();
 			    	 if (command != null) {
+			 			mibUse.add(true);
+			 			if (!mibnode.getAttribute("keep MIBs loaded").getBool()) try {
+							Thread.sleep(500);
+						} catch (InterruptedException ex1) {
+							LOGGER.debug("", ex1);
+						}
 			    		 LOGGER.debug("recieved trap: " + command.toString());
 			    		 String from = ((UdpAddress) e.getPeerAddress()).getInetAddress().getHostAddress();
 				    	 for (Node child: node.getChildren().values()) {
@@ -145,6 +162,7 @@ public class SnmpLink {
 				    			 tnode.setValue(new Value(traparr.toString()));
 				    		 }
 				    	 }
+				    	 mibUse.remove();
 			    	 }
 			    	 e.setProcessed(true);
 			     }
@@ -164,7 +182,13 @@ public class SnmpLink {
 		
 		restoreLastSession();
 		
-		Action act = new Action(Permission.READ, new AddAgentHandler());
+		Action act = new Action(Permission.READ, new ConfigHandler());
+		Value v = mibnode.getAttribute("keep MIBs loaded");
+		boolean defval = v == null || v.getBool();
+		act.addParameter(new Parameter("keep MIBs loaded", ValueType.BOOL, new Value(defval)));
+		node.createChild("options").setAction(act).build().setSerializable(false);
+		
+		act = new Action(Permission.READ, new AddAgentHandler());
 		act.addParameter(new Parameter("Name", ValueType.STRING));
 		act.addParameter(new Parameter("IP", ValueType.STRING));
 		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(161)));
@@ -190,6 +214,94 @@ public class SnmpLink {
 		
 	}
 	
+	private class MibThread implements Runnable {
+		private final MibLoader mibLoader = new MibLoader();
+		private boolean loaded = false;
+		public void run() {
+			mibLoader.addDir(MIB_STORE);
+			if (mibnode.getAttribute("keep MIBs loaded") == null || mibnode.getAttribute("keep MIBs loaded").getBool()) {
+				allMibs = null;
+				loadAllMibs();
+				allMibs = mibLoader.getAllMibs();
+				loaded = true;
+				mibnode.setAttribute("keep MIBs loaded", new Value(true));
+			}
+			while(true) {
+				if (loaded && !mibnode.getAttribute("keep MIBs loaded").getBool() && mibUse.isEmpty()) {
+					mibLoader.unloadAll();
+					allMibs = new Mib[0];
+					loaded = false;
+				}
+				if (!loaded && !mibUse.isEmpty()) {
+					allMibs = null;
+					loadAllMibs();
+					allMibs = mibLoader.getAllMibs();
+					loaded = true;
+				}
+				while (!newMibs.isEmpty()) {
+					File f = newMibs.remove();
+					if (loaded)
+						try {
+							mibLoader.load(f);
+						} catch (IOException e) {
+							LOGGER.debug("error:", e);
+						} catch (MibLoaderException e) {
+							LOGGER.debug("error:", e);
+						}
+				}
+				while (!deletedMibs.isEmpty()) {
+					File f = deletedMibs.remove();
+					if (loaded)
+						try {
+							mibLoader.unload(f);
+						} catch (MibLoaderException e) {
+							LOGGER.debug("error:", e);
+						}
+					if (!f.delete()) LOGGER.error("Error deleting MIB file");
+				}
+				try {
+					Thread.sleep(250);
+				} catch (InterruptedException e) {
+					LOGGER.debug("error:", e);
+				}
+			}
+		}
+		
+		void loadAllMibs() {
+			for (String mibName: Config.STANDARD_MIBS) {
+				try {
+					mibLoader.load(mibName);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					//e.printStackTrace();
+					LOGGER.debug("error:", e);
+				} catch (MibLoaderException e) {
+					// TODO Auto-generated catch block
+					//e.printStackTrace();
+					LOGGER.debug("error:", e);
+				}
+			}
+			for (File mibFile: MIB_STORE.listFiles()) {
+				String name = mibFile.getName();
+				Node child = mibnode.createChild(name).build();
+				child.setSerializable(false);
+				Action act = new Action(Permission.READ, new RemoveMibHandler(child));
+				child.createChild("remove").setAction(act).build().setSerializable(false);
+				try {
+					mibLoader.load(mibFile);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					//e.printStackTrace();
+					LOGGER.debug("error:", e);
+				} catch (MibLoaderException e) {
+					// TODO Auto-generated catch block
+					//e.printStackTrace();
+					LOGGER.debug("error:", e);
+				}
+			}
+		}
+	}
+
 	private void restoreLastSession() {
 		if (node.getChildren() == null) return;
 		for (Node child: node.getChildren().values()) {
@@ -223,7 +335,14 @@ public class SnmpLink {
 	String parseOid(OID oid) {
 		String oidString = oid.toDottedString();
 		MibValueSymbol bestmatch = null;
-		for (Mib mib: mibLoader.getAllMibs()) {
+		while (allMibs == null) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				LOGGER.debug("", e);
+			}
+		}
+		for (Mib mib: allMibs) {
 			MibValueSymbol mvs = mib.getSymbolByOid(oidString);
 			ObjectIdentifierValue mvsOid = getOidFromSymbol(mvs);
 			if (mvsOid != null) {
@@ -247,6 +366,20 @@ public class SnmpLink {
 		return null;
 	}
 	
+	private class ConfigHandler implements Handler<ActionResult> {
+		public void handle(ActionResult event) {
+			boolean keepLoaded = event.getParameter("keep MIBs loaded", ValueType.BOOL).getBool();
+			
+			mibnode.setAttribute("keep MIBs loaded", new Value(keepLoaded));
+
+			Action act = new Action(Permission.READ, new ConfigHandler());
+			act.addParameter(new Parameter("keep MIBs loaded", ValueType.BOOL, new Value(keepLoaded)));
+			Node anode = node.getChild("options");
+			if (anode != null) anode.setAction(act);
+			else node.createChild("options").setAction(act).build().setSerializable(false);
+		}
+	}
+	
 	private class AddMibHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
 			String mibText = event.getParameter("MIB Text", ValueType.STRING).getString();
@@ -265,17 +398,7 @@ public class SnmpLink {
 			child.setSerializable(false);
 			Action act = new Action(Permission.READ, new RemoveMibHandler(child));
 			child.createChild("remove").setAction(act).build().setSerializable(false);
-			try {
-				mibLoader.load(mibFile);
-			} catch (IOException e) {
-				LOGGER.error("IOException while loading MIB");
-				LOGGER.debug("error:", e);
-				//e.printStackTrace();
-			} catch (MibLoaderException e) {
-				LOGGER.error("MibLoaderException while loading MIB");
-				LOGGER.debug("error:", e);
-				//e.printStackTrace();
-			}
+			newMibs.add(mibFile);
 		}
 	}
 	
@@ -310,14 +433,7 @@ public class SnmpLink {
 		public void handle(ActionResult event) {
 			String name = toRemove.getName();
 			File remfile = new File(MIB_STORE, name);
-			try {
-				mibLoader.unload(remfile);
-			} catch (MibLoaderException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-				LOGGER.debug("error:", e);
-			}
-			if (!remfile.delete()) LOGGER.error("Error deleting MIB file");
+			deletedMibs.add(remfile);
 			mibnode.removeChild(toRemove);
 			
 		}
@@ -335,40 +451,6 @@ public class SnmpLink {
 		        writer.close( );
 		    } catch ( IOException e) {
 		    }
-		}
-	}
-	
-	private void loadAllMibs() {
-		for (String mibName: Config.STANDARD_MIBS) {
-			try {
-				mibLoader.load(mibName);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-				LOGGER.debug("error:", e);
-			} catch (MibLoaderException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-				LOGGER.debug("error:", e);
-			}
-		}
-		for (File mibFile: MIB_STORE.listFiles()) {
-			String name = mibFile.getName();
-			Node child = mibnode.createChild(name).build();
-			child.setSerializable(false);
-			Action act = new Action(Permission.READ, new RemoveMibHandler(child));
-			child.createChild("remove").setAction(act).build().setSerializable(false);
-			try {
-				mibLoader.load(mibFile);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-				LOGGER.debug("error:", e);
-			} catch (MibLoaderException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-				LOGGER.debug("error:", e);
-			}
 		}
 	}
 	

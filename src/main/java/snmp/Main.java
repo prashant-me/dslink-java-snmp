@@ -15,6 +15,8 @@ public class Main extends DSLinkHandler {
 	
 	private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 	
+	private SnmpLink snmpLink;
+	
 	public static void main(String[] args) {
 		
 		//args = new String[] { "-b", "http://localhost:8080/conn", "-l", "debug" };
@@ -34,7 +36,14 @@ public class Main extends DSLinkHandler {
 		Serializer copyser = new Serializer(manager);
 		Deserializer copydeser = new Deserializer(manager);
         Node superRoot = manager.getNode("/").getNode();
-        SnmpLink.start(superRoot, copyser, copydeser);
+        snmpLink = SnmpLink.start(superRoot, copyser, copydeser);
+	}
+	
+	@Override
+	public void stop() {
+		if (snmpLink.mibFuture != null) {
+			snmpLink.mibFuture.cancel(true);
+		}
 	}
 
 }
