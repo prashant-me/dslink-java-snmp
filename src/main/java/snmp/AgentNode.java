@@ -90,25 +90,35 @@ class AgentNode extends SnmpNode {
 	
 	class EditAgentHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
-			String name = event.getParameter("Name", ValueType.STRING).getString();
-			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
-					+ event.getParameter("Port", ValueType.STRING).getString();
-			interval = (long) (1000*event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().doubleValue());
-			String comStr = event.getParameter("Community String", ValueType.STRING).getString();
-			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
-			if (version == null) version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
-			if (version == null) version = SnmpVersion.v2c;
-			String secName = event.getParameter("Security Name", ValueType.STRING).getString();
-			String authProt = event.getParameter("Auth Protocol").getString();
-			String authPass = event.getParameter("Auth Passphrase", ValueType.STRING).getString();
-			String privProt = event.getParameter("Priv Protocol").getString();
-			String privPass = event.getParameter("Priv Passphrase", ValueType.STRING).getString();
-			String engine = event.getParameter("Engine ID", ValueType.STRING).getString();
-			String cEngine = event.getParameter("Context Engine", ValueType.STRING).getString();
-			String cName = event.getParameter("Context Name", ValueType.STRING).getString();
-			int retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
-			long timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
 			
+			String name, ip, comStr, secName, authProt, authPass, privProt, privPass, engine, cEngine, cName;
+			SnmpVersion version;
+			int retries;
+			long timeout;
+			
+			try {
+				name = event.getParameter("Name", ValueType.STRING).getString();
+				ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
+						+ event.getParameter("Port", ValueType.STRING).getString();
+				comStr = event.getParameter("Community String", ValueType.STRING).getString();
+				version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
+				if (version == null) version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
+				if (version == null) version = SnmpVersion.v2c;
+				secName = event.getParameter("Security Name", ValueType.STRING).getString();
+				authProt = event.getParameter("Auth Protocol").getString();
+				authPass = event.getParameter("Auth Passphrase", ValueType.STRING).getString();
+				privProt = event.getParameter("Priv Protocol").getString();
+				privPass = event.getParameter("Priv Passphrase", ValueType.STRING).getString();
+				engine = event.getParameter("Engine ID", ValueType.STRING).getString();
+				cEngine = event.getParameter("Context Engine", ValueType.STRING).getString();
+				cName = event.getParameter("Context Name", ValueType.STRING).getString();
+				retries = event.getParameter("Retries", ValueType.NUMBER).getNumber().intValue();
+				timeout = event.getParameter("Timeout", ValueType.NUMBER).getNumber().longValue();
+				interval = (long) (1000*event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().doubleValue());
+			} catch (RuntimeException e) {
+				return;
+			}
+				
 			link.handleEdit(root);
 			
 			node.setAttribute("Polling Interval", new Value(interval));
