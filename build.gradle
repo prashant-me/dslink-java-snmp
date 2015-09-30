@@ -15,8 +15,8 @@ repositories {
 }
  
 dependencies {
-	compile 'com.google.code.findbugs:annotations:3.0.0'
-    compile 'org.iot-dsa:dslink:0.8.0'
+    compile 'com.google.code.findbugs:annotations:3.0.0'
+    compile 'org.iot-dsa:dslink:0.10.0'
     compile fileTree('mibble/lib')
     compile 'org.apache.servicemix.bundles:org.apache.servicemix.bundles.snmp4j:2.3.3_1'
 

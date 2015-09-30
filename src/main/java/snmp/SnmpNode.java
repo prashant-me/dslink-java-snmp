@@ -12,6 +12,7 @@ import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snmp4j.PDU;
@@ -26,8 +27,7 @@ import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.SMIConstants;
 import org.snmp4j.smi.Variable;
 import org.snmp4j.smi.VariableBinding;
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.json.JsonObject;
+import org.dsa.iot.dslink.util.handler.Handler;
 
 import snmp.SnmpLink.SnmpVersion;
 
@@ -185,8 +185,8 @@ public class SnmpNode {
 	protected void duplicate(String name) {
 		JsonObject jobj = link.copySerializer.serialize();
 		JsonObject parentobj = getParentJson(jobj);
-		JsonObject nodeobj = parentobj.getObject(node.getName());
-		parentobj.putObject(name, nodeobj);
+		JsonObject nodeobj = parentobj.get(node.getName());
+		parentobj.put(name, nodeobj);
 		link.copyDeserializer.deserialize(jobj);
 		Node newnode = node.getParent().getChild(name);
 		SnmpNode sf = new SnmpNode(link, newnode, root);
@@ -199,7 +199,7 @@ public class SnmpNode {
 
 	private JsonObject getParentJson(JsonObject jobj, Node n) {
 		if (n == root.node) return jobj;
-		else return getParentJson(jobj, n.getParent()).getObject(n.getParent().getName());
+		else return getParentJson(jobj, n.getParent()).get(n.getParent().getName());
 	}
 	
 	class GetHandler implements Handler<ActionResult> {
@@ -411,9 +411,9 @@ public class SnmpNode {
 	
 	protected void copywalk(Node wnode, String name) {
 		JsonObject jobj = link.copySerializer.serialize();
-		JsonObject parentobj = getParentJson(jobj).getObject(node.getName());
-		JsonObject walkobj = parentobj.getObject(wnode.getName());
-		parentobj.putObject(name, walkobj);
+		JsonObject parentobj = getParentJson(jobj).get(node.getName());
+		JsonObject walkobj = parentobj.get(wnode.getName());
+		parentobj.put(name, walkobj);
 		link.copyDeserializer.deserialize(jobj);
 		Node newnode = node.getChild(name);
 		restoreWalk(newnode);

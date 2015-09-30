@@ -31,6 +31,8 @@ import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.serializer.Deserializer;
 import org.dsa.iot.dslink.serializer.Serializer;
 import org.dsa.iot.dslink.util.Objects;
+import org.dsa.iot.dslink.util.json.JsonArray;
+import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snmp4j.CommandResponder;
@@ -52,9 +54,7 @@ import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.json.JsonArray;
-import org.vertx.java.core.json.JsonObject;
+import org.dsa.iot.dslink.util.handler.Handler;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -156,9 +156,9 @@ public class SnmpLink {
 				    			 JsonObject jo = new JsonObject();
 				    			 for (VariableBinding vb: command.toArray()) {
 				    				 String fieldname = parseOid(vb.getOid());
-				    				 jo.putString(fieldname, vb.toValueString());
+				    				 jo.put(fieldname, vb.toValueString());
 				    			 }
-				    			 traparr.addObject(jo);
+				    			 traparr.add(jo);
 				    			 tnode.setValue(new Value(traparr.toString()));
 				    		 }
 				    	 }
@@ -272,31 +272,26 @@ public class SnmpLink {
 				try {
 					mibLoader.load(mibName);
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					//e.printStackTrace();
 					LOGGER.debug("error:", e);
 				} catch (MibLoaderException e) {
-					// TODO Auto-generated catch block
-					//e.printStackTrace();
 					LOGGER.debug("error:", e);
 				}
 			}
-			for (File mibFile: MIB_STORE.listFiles()) {
-				String name = mibFile.getName();
-				Node child = mibnode.createChild(name).build();
-				child.setSerializable(false);
-				Action act = new Action(Permission.READ, new RemoveMibHandler(child));
-				child.createChild("remove").setAction(act).build().setSerializable(false);
-				try {
-					mibLoader.load(mibFile);
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					//e.printStackTrace();
-					LOGGER.debug("error:", e);
-				} catch (MibLoaderException e) {
-					// TODO Auto-generated catch block
-					//e.printStackTrace();
-					LOGGER.debug("error:", e);
+			File[] files = MIB_STORE.listFiles();
+			if (files != null) {
+				for (File mibFile : files) {
+					String name = mibFile.getName();
+					Node child = mibnode.createChild(name).build();
+					child.setSerializable(false);
+					Action act = new Action(Permission.READ, new RemoveMibHandler(child));
+					child.createChild("remove").setAction(act).build().setSerializable(false);
+					try {
+						mibLoader.load(mibFile);
+					} catch (IOException e) {
+						LOGGER.debug("error:", e);
+					} catch (MibLoaderException e) {
+						LOGGER.debug("error:", e);
+					}
 				}
 			}
 		}

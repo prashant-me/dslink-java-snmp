@@ -7,6 +7,8 @@ import org.dsa.iot.dslink.node.actions.ActionResult;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.util.json.JsonArray;
+import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snmp4j.CommunityTarget;
@@ -23,9 +25,7 @@ import org.snmp4j.smi.Address;
 import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.json.JsonArray;
-import org.vertx.java.core.json.JsonObject;
+import org.dsa.iot.dslink.util.handler.Handler;
 
 import snmp.SnmpLink.SnmpVersion;
 
@@ -152,14 +152,12 @@ class AgentNode extends SnmpNode {
 	@Override
 	protected void duplicate(String name) {
 		JsonObject jobj = link.copySerializer.serialize();
-		JsonObject nodeobj = jobj.getObject(node.getName());
-		jobj.putObject(name, nodeobj);
+		JsonObject nodeobj = jobj.get(node.getName());
+		jobj.put(name, nodeobj);
 		link.copyDeserializer.deserialize(jobj);
 		Node newnode = node.getParent().getChild(name);
 		AgentNode an = new AgentNode(link, newnode);
 		an.restoreLastSession();
-		return;
-		
 	}
 	
 	public SnmpVersion getVersion() {
