@@ -79,15 +79,16 @@ public class SnmpLink {
 	private SnmpLink(Node node, Serializer ser, Deserializer deser) {
 		this.node = node;
 		this.mibnode = node.getChild("MIBs");
-		if (this.mibnode == null) this.mibnode = node.createChild("MIBs").build();
+		if (this.mibnode == null) {
+            this.mibnode = node.createChild("MIBs").build();
+        }
 		this.copySerializer = ser;
 		this.copyDeserializer = deser;
 		this.futures = new ConcurrentHashMap<>();
 	}
 	
 	public static SnmpLink start(Node parent, Serializer copyser, Deserializer copydeser) {
-		Node node = parent;
-		final SnmpLink link = new SnmpLink(node, copyser, copydeser);
+		final SnmpLink link = new SnmpLink(parent, copyser, copydeser);
 		link.init();
 		return link;
 	}
@@ -206,12 +207,12 @@ public class SnmpLink {
 		act.addParameter(new Parameter("Retries", ValueType.NUMBER, new Value(2)));
 		act.addParameter(new Parameter("Timeout", ValueType.NUMBER, new Value(1500)));
 		node.createChild("addAgent").setAction(act).build().setSerializable(false);
+
 		act = new Action(Permission.READ, new AddMibHandler());
 		Parameter param = new Parameter("MIB Text", ValueType.STRING);
 		param.setEditorType(EditorType.TEXT_AREA);
 		act.addParameter(param);
 		mibnode.createChild("add MIB").setAction(act).build().setSerializable(false);
-		
 	}
 	
 	private class MibThread implements Runnable {
@@ -321,7 +322,7 @@ public class SnmpLink {
 
 				AgentNode an = new AgentNode(this, child);
 				an.restoreLastSession();
-			} else if (child.getAction() == null && child.getName() != "MIBs") {
+			} else if (child.getAction() == null && !child.getName().equals("MIBs")) {
 				node.removeChild(child);
 			}
 		}
