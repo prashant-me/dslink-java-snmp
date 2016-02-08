@@ -12,38 +12,39 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Main extends DSLinkHandler {
-	
-	private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
-	
-	private SnmpLink snmpLink;
-	
-	public static void main(String[] args) {
-		
-		//args = new String[] { "-b", "http://localhost:8080/conn", "-l", "debug" };
-		DSLinkFactory.start(args, new Main());
-	}
-	
-	@Override
-	public boolean isResponder() {
-		return true;
-	}
-	
-	@Override
-	public void onResponderInitialized(DSLink link){
-		LOGGER.info("Initialized");
-		
-		NodeManager manager = link.getNodeManager();
-		Serializer copyser = new Serializer(manager);
-		Deserializer copydeser = new Deserializer(manager);
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    private SnmpLink snmpLink;
+
+    public static void main(String[] args) {
+        DSLinkFactory.start(args, new Main());
+    }
+
+    @Override
+    public boolean isResponder() {
+        return true;
+    }
+
+    @Override
+    public void onResponderInitialized(DSLink link) {
+        LOGGER.info("Initialized");
+
+        NodeManager manager = link.getNodeManager();
+        Serializer copyser = new Serializer(manager);
+        Deserializer copydeser = new Deserializer(manager);
         Node superRoot = manager.getNode("/").getNode();
         snmpLink = SnmpLink.start(superRoot, copyser, copydeser);
-	}
-	
-	@Override
-	public void stop() {
-		if (snmpLink.mibFuture != null) {
-			snmpLink.mibFuture.cancel(true);
-		}
-	}
+    }
+
+    public void onResponderConnected(DSLink link) {
+        LOGGER.info("Connected");
+    }
+
+    @Override
+    public void stop() {
+        if (snmpLink.mibFuture != null) {
+            snmpLink.mibFuture.cancel(true);
+        }
+    }
 
 }
