@@ -150,8 +150,8 @@ public class SnmpLink {
 			    		 LOGGER.debug("recieved trap: " + command.toString());
 			    		 String from = ((UdpAddress) e.getPeerAddress()).getInetAddress().getHostAddress();
 				    	 for (Node child: node.getChildren().values()) {
-				    		 Value ip = child.getAttribute("ip");
-				    		 if (ip != null && from.equals(ip.getString().split("/")[0])) {
+				    		 Value ip = child.getAttribute("IP");
+				    		 if (ip != null && from.equals(ip.getString())) {
 				    			 Node tnode = child.getChild("TRAPS");
 				    			 JsonArray traparr = new JsonArray(tnode.getValue().getString());
 				    			 JsonObject jo = new JsonObject();
@@ -301,7 +301,17 @@ public class SnmpLink {
 	private void restoreLastSession() {
 		if (node.getChildren() == null) return;
 		for (Node child: node.getChildren().values()) {
-			Value ip = child.getAttribute("ip");
+			Value fullip = child.getAttribute("ip");
+			Value ip = child.getAttribute("IP");
+			Value port = child.getAttribute("Port");
+			if (ip == null || port == null) {
+				if (fullip != null) {
+					child.setAttribute("IP", new Value(fullip.getString().split("/")[0]));
+					child.setAttribute("Port", new Value(fullip.getString().split("/")[1]));
+					ip = child.getAttribute("IP");
+					port = child.getAttribute("Port");
+				}
+			}
 			Value interval = child.getAttribute("Polling Interval");
 			Value comStr = child.getAttribute("Community String");
 			Value version = child.getAttribute("SNMP Version");
@@ -315,7 +325,7 @@ public class SnmpLink {
 			Value cName = child.getAttribute("Context Name");
 			Value retries = child.getAttribute("Retries");
 			Value timeout = child.getAttribute("Timeout");
-			if (ip!=null && interval!=null && comStr!=null && retries!=null && 
+			if (ip!=null && port!=null && interval!=null && comStr!=null && retries!=null && 
 					timeout!=null && version!=null && secName!=null && authProt!=null
 					&& authPass!=null && privProt!=null && privPass!=null && 
 					engine!=null && cEngine!=null && cName!=null) {
@@ -454,8 +464,8 @@ public class SnmpLink {
 		public void handle(ActionResult event) {
 			String comStr="N/A", secName="N/A", authProt="N/A", authPass="N/A",
 					privProt="N/A", privPass="N/A", engine="N/A", cEngine="N/A", cName="N/A";
-			String ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
-					+ event.getParameter("Port", ValueType.STRING).getString();
+			String ip = event.getParameter("IP", ValueType.STRING).getString(); 
+			String port = event.getParameter("Port", ValueType.STRING).getString();
 			String name = event.getParameter("Name", ValueType.STRING).getString();
 			long interval = (long) (1000*event.getParameter("Polling Interval", ValueType.NUMBER).getNumber().doubleValue());
 			SnmpVersion version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
@@ -477,7 +487,8 @@ public class SnmpLink {
 			
 			Node child = node.createChild(name).build();
 			child.setAttribute("Polling Interval", new Value(interval));
-			child.setAttribute("ip", new Value(ip));
+			child.setAttribute("IP", new Value(ip));
+			child.setAttribute("Port", new Value(port));
 			child.setAttribute("Community String", new Value(comStr));
 			child.setAttribute("SNMP Version", new Value(version.toString()));
 			child.setAttribute("Security Name", new Value(secName));

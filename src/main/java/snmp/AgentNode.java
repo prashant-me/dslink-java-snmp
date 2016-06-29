@@ -66,10 +66,10 @@ class AgentNode extends SnmpNode {
 	
 	private void makeEditAction() {
 		Action act = new Action(Permission.READ, new EditAgentHandler());
-		String ip = node.getAttribute("ip").getString();
+//		String ip = node.getAttribute("ip").getString();
 		act.addParameter(new Parameter("Name", ValueType.STRING, new Value(node.getName())));
-		act.addParameter(new Parameter("IP", ValueType.STRING, new Value(ip.split("/")[0])));
-		act.addParameter(new Parameter("Port", ValueType.STRING, new Value(ip.split("/")[1])));
+		act.addParameter(new Parameter("IP", ValueType.STRING, node.getAttribute("IP")));
+		act.addParameter(new Parameter("Port", ValueType.STRING, node.getAttribute("Port")));
 		act.addParameter(new Parameter("Polling Interval", ValueType.NUMBER, new Value(((double)interval)/1000)));
 		act.addParameter(new Parameter("Community String", ValueType.STRING, node.getAttribute("Community String")));
 		act.addParameter(new Parameter("SNMP Version", ValueType.makeEnum("1", "2c", "3"), node.getAttribute("SNMP Version")));
@@ -91,15 +91,15 @@ class AgentNode extends SnmpNode {
 	class EditAgentHandler implements Handler<ActionResult> {
 		public void handle(ActionResult event) {
 			
-			String name, ip, comStr, secName, authProt, authPass, privProt, privPass, engine, cEngine, cName;
+			String name, ip, port, comStr, secName, authProt, authPass, privProt, privPass, engine, cEngine, cName;
 			SnmpVersion version;
 			int retries;
 			long timeout;
 			
 			try {
 				name = event.getParameter("Name", ValueType.STRING).getString();
-				ip = event.getParameter("IP", ValueType.STRING).getString() + "/" 
-						+ event.getParameter("Port", ValueType.STRING).getString();
+				ip = event.getParameter("IP", ValueType.STRING).getString();
+				port = event.getParameter("Port", ValueType.STRING).getString();
 				comStr = event.getParameter("Community String", ValueType.STRING).getString();
 				version = SnmpVersion.parse(event.getParameter("SNMP Version").getString());
 				if (version == null) version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
@@ -122,7 +122,8 @@ class AgentNode extends SnmpNode {
 			link.handleEdit(root);
 			
 			node.setAttribute("Polling Interval", new Value(interval));
-			node.setAttribute("ip", new Value(ip));
+			node.setAttribute("IP", new Value(ip));
+			node.setAttribute("Port", new Value(port));
 			node.setAttribute("SNMP Version", new Value(version.toString()));
 			node.setAttribute("Community String", new Value(comStr));
 			node.setAttribute("Security Name", new Value(secName));
@@ -169,7 +170,7 @@ class AgentNode extends SnmpNode {
 	protected void setTarget() {
 		statnode.setValue(new Value("setting up connection to device"));
 		if (snmp.getUSM() != null) snmp.getUSM().removeAllUsers();
-		String ip = node.getAttribute("ip").getString();
+		String ip = node.getAttribute("IP").getString() + "/" + node.getAttribute("Port").getString();
 		String comString = node.getAttribute("Community String").getString();
 		SnmpVersion version = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
 		if (version == null) version = SnmpVersion.v2c;
