@@ -11,6 +11,7 @@ import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snmp4j.AbstractTarget;
 import org.snmp4j.CommunityTarget;
 import org.snmp4j.UserTarget;
 import org.snmp4j.security.AuthMD5;
@@ -36,7 +37,7 @@ class AgentNode extends SnmpNode {
     }
 	
 	long interval;
-	CommunityTarget target;
+	AbstractTarget target;
 	private Node statnode;
 	
 	AgentNode(SnmpLink slink, Node mynode) {
@@ -118,8 +119,6 @@ class AgentNode extends SnmpNode {
 			} catch (RuntimeException e) {
 				return;
 			}
-				
-			link.handleEdit(root);
 			
 			node.setAttribute("Polling Interval", new Value(interval));
 			node.setAttribute("IP", new Value(ip));
@@ -147,6 +146,7 @@ class AgentNode extends SnmpNode {
 			}
 			makeEditAction();
 			
+			link.handleEdit(root);
 		}
 	}
 	
@@ -168,6 +168,7 @@ class AgentNode extends SnmpNode {
 	}
 	
 	protected void setTarget() {
+		AbstractTarget target;
 		statnode.setValue(new Value("setting up connection to device"));
 		if (snmp.getUSM() != null) snmp.getUSM().removeAllUsers();
 		String ip = node.getAttribute("IP").getString() + "/" + node.getAttribute("Port").getString();
@@ -191,6 +192,7 @@ class AgentNode extends SnmpNode {
 	            else {
 	                LOGGER.error("Authentication protocol unsupported: " + authProtocolStr);
 	                statnode.setValue(new Value("error: Authentication protocol unsupported: " + authProtocolStr));
+	                this.target = null;
 	                return;
 	            }
 			}
@@ -209,6 +211,7 @@ class AgentNode extends SnmpNode {
 	            else {
 	                LOGGER.error("Privacy protocol " + privProtocolStr + " not supported");
 	                statnode.setValue(new Value("error: Privacy protocol " + privProtocolStr + " not supported"));
+	                this.target = null;
 	                return;
 	            }
 	        }
@@ -220,29 +223,36 @@ class AgentNode extends SnmpNode {
 		    snmp.getUSM().addUser(securityName,
 		                new UsmUser(securityName, authProtocol, authPassphrase, privProtocol, privPassphrase));
 		    
-		    UserTarget target = new UserTarget();
+		    UserTarget utarget = new UserTarget();
 	        if (authPassphrase.length() > 0) {
 	            if (privPassphrase.length() > 0)
-	                target.setSecurityLevel(SecurityLevel.AUTH_PRIV);
+	                utarget.setSecurityLevel(SecurityLevel.AUTH_PRIV);
 	            else
-	                target.setSecurityLevel(SecurityLevel.AUTH_NOPRIV);
+	                utarget.setSecurityLevel(SecurityLevel.AUTH_NOPRIV);
 	        }
 	        else
-	            target.setSecurityLevel(SecurityLevel.NOAUTH_NOPRIV);
+	            utarget.setSecurityLevel(SecurityLevel.NOAUTH_NOPRIV);
 
-	        target.setSecurityName(securityName);
-		    
+	        utarget.setSecurityName(securityName);
+		    target = utarget;
 		} else {
-			target = new CommunityTarget();
-			target.setCommunity(new OctetString(comString));
-			
+			CommunityTarget ctarget = new CommunityTarget();
+			ctarget.setCommunity(new OctetString(comString));
+			target = ctarget;
 		}
 		
 		Address ad = GenericAddress.parse("udp:"+ip);
+		if (ad == null) {
+			LOGGER.error("Invalid Address: " + ip);
+            statnode.setValue(new Value("error: Invalid Address"));
+            this.target = null;
+            return;
+		}
 		target.setAddress(ad);
 		target.setRetries(retries);
 		target.setTimeout(timeout);
 		target.setVersion(version.getVersion());
+		this.target = target;
 	}
 	
     public static OctetString createOctetString(String s) {

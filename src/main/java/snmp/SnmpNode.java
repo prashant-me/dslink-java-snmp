@@ -103,6 +103,7 @@ public class SnmpNode {
 	}
 	
 	private void walk(final Node response, final OID oid) {
+		if (root.target == null) return;
 		PDU pdu = new PDU();
 		pdu.add(new VariableBinding(oid));
 		pdu.setType(PDU.GETNEXT);
@@ -135,7 +136,7 @@ public class SnmpNode {
 		try {
 			LOGGER.debug("sending getnext");
 			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
-			snmp.send(pdu, root.target, null, listener);
+			if (root.target != null) snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			//e.printStackTrace();
@@ -221,6 +222,7 @@ public class SnmpNode {
 	}
 	
 	void sendGetRequest(final Node response) {
+		if (root.target == null) return;
 		PDU pdu;
 		if (root.getVersion() == SnmpVersion.v3) {
 			ScopedPDU spdu = new ScopedPDU();
@@ -256,7 +258,7 @@ public class SnmpNode {
 		   };
 		try {
 			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
-			snmp.send(pdu, root.target, null, listener);
+			if (root.target != null) snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			//e.printStackTrace();
@@ -309,7 +311,7 @@ public class SnmpNode {
 			pdu.setType(PDU.SET);
 			try {
 				LOGGER.info("sending pdu: " + pdu + "   to target: " + root.target);
-				snmp.send(pdu, root.target, null, null);
+				if (root.target != null) snmp.send(pdu, root.target, null, null);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				//e.printStackTrace();

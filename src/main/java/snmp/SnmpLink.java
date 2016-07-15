@@ -6,8 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledFuture;
@@ -305,9 +307,15 @@ public class SnmpLink {
 			Value ip = child.getAttribute("IP");
 			Value port = child.getAttribute("Port");
 			if (ip == null || port == null) {
-				if (fullip != null) {
-					child.setAttribute("IP", new Value(fullip.getString().split("/")[0]));
-					child.setAttribute("Port", new Value(fullip.getString().split("/")[1]));
+				if (fullip != null && fullip.getString() != null) {
+					String[] arr = fullip.getString().split("/");
+					if (arr.length < 2) {
+						child.setAttribute("IP", new Value(""));
+						child.setAttribute("Port", new Value("162"));
+					} else {
+						child.setAttribute("IP", new Value(fullip.getString().split("/")[0]));
+						child.setAttribute("Port", new Value(fullip.getString().split("/")[1]));
+					}
 					ip = child.getAttribute("IP");
 					port = child.getAttribute("Port");
 				}
@@ -531,7 +539,8 @@ public class SnmpLink {
 		}
 
 	void handleEdit(AgentNode agent) {
-		for (Node event: futures.keySet()) {
+		Set<Node> subbed = new HashSet<Node>(futures.keySet());
+		for (Node event: subbed) {
 			if (event.getMetaData() == agent) {
 				handleUnsub(agent, event);
 				handleSub(agent, event);
