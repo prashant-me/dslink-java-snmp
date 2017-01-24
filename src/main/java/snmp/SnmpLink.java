@@ -124,6 +124,8 @@ public class SnmpLink {
 			} else {
 				traptransport = new DefaultUdpTransportMapping();
 			}
+			LOGGER.debug("Listening for traps on port " + traptransport.getListenAddress().getPort());
+			
 			snmp = new Snmp(transport);
 			Snmp trapsnmp = new Snmp(traptransport);
 			SecurityProtocols.getInstance().addDefaultProtocols();

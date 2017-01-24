@@ -1,6 +1,6 @@
 {
   "name": "dslink-java-snmp",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "A dslink for snmp",
   "license": "GNU GPL",
   "main": "bin/dslink-java-snmp",
