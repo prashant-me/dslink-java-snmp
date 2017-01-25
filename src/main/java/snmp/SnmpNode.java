@@ -118,7 +118,7 @@ public class SnmpNode {
 		    	   OID noid = event.getResponse().get(0).getOid();
 		    	   String val = event.getResponse().getVariable(noid).toString();
 		    	   String noidname = link.parseOid(noid);
-		    	   NodeBuilder builder = response.createChild(noidname.replace('.', ','));
+		    	   NodeBuilder builder = response.createChild(noidname);
 		    	   builder.setValueType(ValueType.STRING);
 		    	   builder.setValue(new Value(val));
 		    	   Node vnode = builder.build();

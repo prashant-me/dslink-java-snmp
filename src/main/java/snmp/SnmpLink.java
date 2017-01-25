@@ -41,6 +41,7 @@ import org.snmp4j.CommandResponder;
 import org.snmp4j.CommandResponderEvent;
 import org.snmp4j.MessageDispatcher;
 import org.snmp4j.PDU;
+import org.snmp4j.PDUv1;
 import org.snmp4j.Snmp;
 import org.snmp4j.TransportMapping;
 import org.snmp4j.mp.MPv1;
@@ -53,6 +54,7 @@ import org.snmp4j.smi.Address;
 import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
+import org.snmp4j.smi.TimeTicks;
 import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
@@ -159,6 +161,14 @@ public class SnmpLink {
 				    			 Node tnode = child.getChild("TRAPS");
 				    			 JsonArray traparr = new JsonArray(tnode.getValue().getString());
 				    			 JsonObject jo = new JsonObject();
+				    			 jo.put("requestID", command.getRequestID().toLong());
+				    			 if (command instanceof PDUv1) {
+				    				 PDUv1 cmdv1 = (PDUv1) command;
+				    				jo.put("timestamp", (new TimeTicks(cmdv1.getTimestamp())).toString());
+				    				jo.put("enterprise", parseOid(cmdv1.getEnterprise()));
+				    				jo.put("genericTrap", cmdv1.getGenericTrap());
+				    				jo.put("specificTrap", cmdv1.getSpecificTrap());
+				    			 }
 				    			 for (VariableBinding vb: command.toArray()) {
 				    				 String fieldname = parseOid(vb.getOid());
 				    				 jo.put(fieldname, vb.toValueString());
@@ -368,10 +378,10 @@ public class SnmpLink {
 			}
 		}
 		if (bestmatch == null) return oidString;
-		String matchingOidString = getOidFromSymbol(bestmatch).toString().replace('.', ',');
-		oidString = oidString.replace('.', ',');
+		String matchingOidString = getOidFromSymbol(bestmatch).toString(); //.replace('.', ',');
+		//oidString = oidString.replace('.', ',');
 		String retString = oidString.replaceFirst(matchingOidString, bestmatch.getName());
-		return retString.replace(',', '.');
+		return retString; //.replace(',', '.');
 		
 	}
 	
