@@ -242,6 +242,7 @@ public class SnmpLink {
 				mibnode.setAttribute("keep MIBs loaded", new Value(true));
 			}
 			while(true) {
+				boolean changed = false;
 				if (loaded && !mibnode.getAttribute("keep MIBs loaded").getBool() && mibUse.isEmpty()) {
 					mibLoader.unloadAll();
 					allMibs = new Mib[0];
@@ -258,6 +259,7 @@ public class SnmpLink {
 					if (loaded)
 						try {
 							mibLoader.load(f);
+							changed = true;
 						} catch (IOException e) {
 							LOGGER.debug("error:", e);
 						} catch (MibLoaderException e) {
@@ -269,10 +271,14 @@ public class SnmpLink {
 					if (loaded)
 						try {
 							mibLoader.unload(f);
+							changed = true;
 						} catch (MibLoaderException e) {
 							LOGGER.debug("error:", e);
 						}
 					if (!f.delete()) LOGGER.error("Error deleting MIB file");
+				}
+				if (changed) {
+					allMibs = mibLoader.getAllMibs();
 				}
 				try {
 					Thread.sleep(250);
@@ -361,7 +367,7 @@ public class SnmpLink {
 	String parseOid(OID oid) {
 		String oidString = oid.toDottedString();
 		MibValueSymbol bestmatch = null;
-		while (allMibs == null) {
+		while (allMibs == null || !newMibs.isEmpty()) {
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {
