@@ -58,11 +58,7 @@ class AgentNode extends SnmpNode {
 		
 		makeEditAction();
 		
-		setTarget();
-		if (target != null) {
-			statnode.setValue(new Value("Ready"));
-		}
-		
+		setup();		
 	}
 	
 	private void makeEditAction() {
@@ -140,10 +136,7 @@ class AgentNode extends SnmpNode {
 				rename(name);
 			}
 			
-			setTarget();
-			if (target != null) {
-				statnode.setValue(new Value("Ready"));
-			}
+			setup();
 			makeEditAction();
 			
 			link.handleEdit(root);
@@ -165,6 +158,19 @@ class AgentNode extends SnmpNode {
 		SnmpVersion v = SnmpVersion.parse(node.getAttribute("SNMP Version").getString());
 		if (v==null) v = SnmpVersion.v2c;
 		return v;
+	}
+	
+	private void setup() {
+		try {
+			setTarget();
+		} catch (Exception e) {
+			LOGGER.debug("", e);
+		}
+		if (target != null) {
+			statnode.setValue(new Value("Ready"));
+		} else {
+			statnode.setValue(new Value("Failed to set up connection to device"));
+		}
 	}
 	
 	protected void setTarget() {
