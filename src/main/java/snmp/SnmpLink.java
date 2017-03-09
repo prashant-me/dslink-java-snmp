@@ -120,13 +120,13 @@ public class SnmpLink {
 				try {
 					traptransport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
 				} catch (Exception e1) {
-					LOGGER.debug("error: ", e1);
+					LOGGER.error("error: ", e1);
 					traptransport = new DefaultUdpTransportMapping();
 				}
 			} else {
 				traptransport = new DefaultUdpTransportMapping();
 			}
-			LOGGER.debug("Listening for traps on port " + traptransport.getListenAddress().getPort());
+			LOGGER.info("Listening for traps on port " + traptransport.getListenAddress().getPort());
 			
 			snmp = new Snmp(transport);
 			Snmp trapsnmp = new Snmp(traptransport);
@@ -145,6 +145,7 @@ public class SnmpLink {
 			CommandResponder trapListener = new CommandResponder() {
 				 @SuppressFBWarnings
 			     public synchronized void processPdu(CommandResponderEvent e) {
+					 LOGGER.info("recieved command responder event: " + e.toString());
 			    	 PDU command = e.getPDU();
 			    	 if (command != null) {
 			 			mibUse.add(true);
@@ -153,7 +154,7 @@ public class SnmpLink {
 						} catch (InterruptedException ex1) {
 							LOGGER.debug("", ex1);
 						}
-			    		 LOGGER.debug("recieved trap: " + command.toString());
+			    		 LOGGER.info("recieved trap: " + command.toString());
 			    		 String from = ((UdpAddress) e.getPeerAddress()).getInetAddress().getHostAddress();
 				    	 for (Node child: node.getChildren().values()) {
 				    		 Value ip = child.getAttribute("IP");
@@ -187,11 +188,11 @@ public class SnmpLink {
 			   trapsnmp.listen();
 			   
 			   snmp.listen();
-			   LOGGER.debug("snmp started listening");
+			   LOGGER.info("snmp started listening");
 			   
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			LOGGER.debug("error:", e);
+			LOGGER.error("error:", e);
 			//e.printStackTrace();
 		}
 		
