@@ -109,9 +109,9 @@ public class SnmpNode {
 		pdu.setType(PDU.GETNEXT);
 		ResponseListener listener = new ResponseListener() {
 		     public void onResponse(ResponseEvent event) {
-		    	 LOGGER.debug("Received response PDU is: "+event.getResponse());
-		    	 LOGGER.debug("Received response PDU Error is: "+event.getError());
-		    	 LOGGER.debug("Received response PDU Peer Address is: "+event.getPeerAddress());
+		    	 LOGGER.trace("Received response PDU is: "+event.getResponse());
+		    	 LOGGER.trace("Received response PDU Error is: "+event.getError());
+		    	 LOGGER.trace("Received response PDU Peer Address is: "+event.getPeerAddress());
 		       ((Snmp)event.getSource()).cancel(event.getRequest(), this);
 		       //LOGGER.debug("(Walking) Received response PDU is: "+event.getResponse());
 		       if (event.getResponse() != null && !event.getResponse().get(0).isException()) {
@@ -134,13 +134,14 @@ public class SnmpNode {
 		   };
 		
 		try {
-			LOGGER.debug("sending getnext");
-			LOGGER.debug("sending pdu: " + pdu + "   to target: " + root.target);
+			LOGGER.trace("sending getnext");
+			LOGGER.trace("sending pdu: " + pdu + "   to target: " + root.target);
 			if (root.target != null) snmp.send(pdu, root.target, null, listener);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			//e.printStackTrace();
-			LOGGER.error("error:", e);
+			LOGGER.error("error during walk");
+			LOGGER.debug("error:", e);
 			link.mibUse.remove();
 		}
 	}
