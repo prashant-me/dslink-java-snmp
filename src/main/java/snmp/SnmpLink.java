@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Scanner;
@@ -120,7 +121,7 @@ public class SnmpLink {
 				try {
 					traptransport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
 				} catch (Exception e1) {
-					LOGGER.error("error: ", e1);
+					LOGGER.debug("error: ", e1);
 					traptransport = new DefaultUdpTransportMapping();
 				}
 			} else {
@@ -145,7 +146,7 @@ public class SnmpLink {
 			CommandResponder trapListener = new CommandResponder() {
 				 @SuppressFBWarnings
 			     public synchronized void processPdu(CommandResponderEvent e) {
-					 LOGGER.info("recieved command responder event: " + e.toString());
+					 LOGGER.trace("received command responder event: " + e.toString());
 			    	 PDU command = e.getPDU();
 			    	 if (command != null) {
 			 			mibUse.add(true);
@@ -154,7 +155,7 @@ public class SnmpLink {
 						} catch (InterruptedException ex1) {
 							LOGGER.debug("", ex1);
 						}
-			    		 LOGGER.info("recieved trap: " + command.toString());
+			    		 LOGGER.debug("received trap: " + command.toString());
 			    		 String from = ((UdpAddress) e.getPeerAddress()).getInetAddress().getHostAddress();
 				    	 for (Node child: node.getChildren().values()) {
 				    		 Value ip = child.getAttribute("IP");
@@ -163,9 +164,10 @@ public class SnmpLink {
 				    			 JsonArray traparr = new JsonArray(tnode.getValue().getString());
 				    			 JsonObject jo = new JsonObject();
 				    			 jo.put("requestID", command.getRequestID().toLong());
+				    			 jo.put("time recieved", OffsetDateTime.now().toString());
 				    			 if (command instanceof PDUv1) {
 				    				 PDUv1 cmdv1 = (PDUv1) command;
-				    				jo.put("timestamp", (new TimeTicks(cmdv1.getTimestamp())).toString());
+				    				jo.put("snmp timestamp", (new TimeTicks(cmdv1.getTimestamp())).toString());
 				    				jo.put("enterprise", parseOid(cmdv1.getEnterprise()));
 				    				jo.put("genericTrap", cmdv1.getGenericTrap());
 				    				jo.put("specificTrap", cmdv1.getSpecificTrap());
@@ -192,7 +194,8 @@ public class SnmpLink {
 			   
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			LOGGER.error("error:", e);
+			LOGGER.error("error initializing snmp");
+			LOGGER.debug("" ,e);
 			//e.printStackTrace();
 		}
 		
