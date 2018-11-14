@@ -6,7 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Scanner;
@@ -34,6 +33,7 @@ import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.serializer.Deserializer;
 import org.dsa.iot.dslink.serializer.Serializer;
 import org.dsa.iot.dslink.util.Objects;
+import org.dsa.iot.dslink.util.TimeUtils;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
@@ -164,7 +164,7 @@ public class SnmpLink {
 				    			 JsonArray traparr = new JsonArray(tnode.getValue().getString());
 				    			 JsonObject jo = new JsonObject();
 				    			 jo.put("requestID", command.getRequestID().toLong());
-				    			 jo.put("time recieved", OffsetDateTime.now().toString());
+				    			 jo.put("time recieved", TimeUtils.format(System.currentTimeMillis()));
 				    			 if (command instanceof PDUv1) {
 				    				 PDUv1 cmdv1 = (PDUv1) command;
 				    				jo.put("snmp timestamp", (new TimeTicks(cmdv1.getTimestamp())).toString());
