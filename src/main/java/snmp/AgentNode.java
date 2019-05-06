@@ -47,11 +47,11 @@ class AgentNode extends SnmpNode {
 		this.interval = node.getAttribute("Polling Interval").getNumber().longValue();
 
 		final Node tnode = node.createChild("TRAPS").setValueType(ValueType.STRING).build();
-		String emptyjson = new JsonArray().toString();
+		String emptyjson = new JsonObject().toString();
 		tnode.setValue(new Value(emptyjson));
 		Action act = new Action(Permission.READ, new Handler<ActionResult>() {
 			public void handle(ActionResult event) {
-				tnode.setValue(new Value(new JsonArray().toString()));
+				tnode.setValue(new Value(new JsonObject().toString()));
 			}
 		});
 		tnode.createChild("clear").setAction(act).build().setSerializable(false);

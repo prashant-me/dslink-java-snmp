@@ -108,10 +108,10 @@ public class SnmpLink {
 			if (!MIB_STORE.mkdirs()) LOGGER.error("error making Mib Store directory");
 		}
 		
-		ScheduledThreadPoolExecutor stpe = Objects.getDaemonThreadPool();
+		ScheduledThreadPoolExecutor stpe = Objects.createDaemonThreadPool(4);
 		mibFuture = stpe.schedule(new MibThread(), 0, TimeUnit.SECONDS);
 		
-		Address listenAddress = GenericAddress.parse(System.getProperty("snmp4j.listenAddress","udp:0.0.0.0/162"));
+		Address listenAddress = GenericAddress.parse(System.getProperty("snmp4j.listenAddress","udp:0.0.0.0/4001"));
 		TransportMapping<UdpAddress> transport;
 		TransportMapping<UdpAddress> traptransport;
 		
@@ -161,7 +161,7 @@ public class SnmpLink {
 				    		 Value ip = child.getAttribute("IP");
 				    		 if (ip != null && from.equals(ip.getString())) {
 				    			 Node tnode = child.getChild("TRAPS");
-				    			 JsonArray traparr = new JsonArray(tnode.getValue().getString());
+				    			 //JsonArray traparr = new JsonArray(tnode.getValue().getString());
 				    			 JsonObject jo = new JsonObject();
 				    			 jo.put("requestID", command.getRequestID().toLong());
 				    			 jo.put("time recieved", TimeUtils.format(System.currentTimeMillis()));
@@ -176,8 +176,8 @@ public class SnmpLink {
 				    				 String fieldname = parseOid(vb.getOid());
 				    				 jo.put(fieldname, vb.toValueString());
 				    			 }
-				    			 traparr.add(jo);
-				    			 tnode.setValue(new Value(traparr.toString()));
+				    			 //traparr.add(jo);
+				    			 tnode.setValue(new Value(jo.toString()));
 				    		 }
 				    	 }
 				    	 mibUse.remove();

@@ -1,6 +1,6 @@
 {
   "name": "dslink-java-snmp",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "A dslink for snmp",
   "license": "GNU GPL",
   "main": "bin/dslink-java-snmp",
@@ -35,7 +35,7 @@
       "default": ".key"
     },
     "log": {
-      "type": "enum",
+      "type": "string",
       "default": "info"
     },
     "handler_class": {
