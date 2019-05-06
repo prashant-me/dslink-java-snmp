@@ -107,10 +107,12 @@ public class SnmpLink {
 		if (!MIB_STORE.exists()) {
 			if (!MIB_STORE.mkdirs()) LOGGER.error("error making Mib Store directory");
 		}
-		
+
+		// create limited thread pool as the link runs on a memory/cpu constrained device
 		ScheduledThreadPoolExecutor stpe = Objects.createDaemonThreadPool(4);
 		mibFuture = stpe.schedule(new MibThread(), 0, TimeUnit.SECONDS);
 		
+		// use default port as 4001
 		Address listenAddress = GenericAddress.parse(System.getProperty("snmp4j.listenAddress","udp:0.0.0.0/4001"));
 		TransportMapping<UdpAddress> transport;
 		TransportMapping<UdpAddress> traptransport;
@@ -162,7 +164,8 @@ public class SnmpLink {
 				    		 if (ip != null && from.equals(ip.getString())) {
 				    			 Node tnode = child.getChild("TRAPS");
 				    			 //JsonArray traparr = new JsonArray(tnode.getValue().getString());
-				    			 JsonObject jo = new JsonObject();
+				    			 // Publish each received TRAP PUD as a fresh Json Object at DSA node
+							 JsonObject jo = new JsonObject();
 				    			 jo.put("requestID", command.getRequestID().toLong());
 				    			 jo.put("time recieved", TimeUtils.format(System.currentTimeMillis()));
 				    			 if (command instanceof PDUv1) {
