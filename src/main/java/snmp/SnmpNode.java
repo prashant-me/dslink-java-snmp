@@ -324,7 +324,7 @@ public class SnmpNode {
 			Value syntax = vnode.getAttribute("syntax");
 			if (oid == null || syntax == null)
 				return;
-			String valstring = event.getCurrent().getString();
+			String valstring = event.getCurrent().toString();//casts any ValueType to string
 			int syntaxInt = syntax.getNumber().intValue();
 			if (syntaxInt == SMIConstants.SYNTAX_NULL)
 				return;

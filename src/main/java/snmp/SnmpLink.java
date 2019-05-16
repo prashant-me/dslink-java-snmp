@@ -270,7 +270,8 @@ public class SnmpLink {
 						} catch (IOException e) {
 							LOGGER.debug("error:", e);
 						} catch (MibLoaderException e) {
-							LOGGER.debug("error:", e);
+							LOGGER.debug("error: unable to load MIB file ", f.getName());
+					                e.getLog().printTo(System.out);
 						}
 				}
 				while (!deletedMibs.isEmpty()) {
@@ -302,7 +303,8 @@ public class SnmpLink {
 				} catch (IOException e) {
 					LOGGER.debug("error:", e);
 				} catch (MibLoaderException e) {
-					LOGGER.debug("error:", e);
+					LOGGER.debug("error: unable to load MIB ", mibName);
+					e.getLog().printTo(System.out);
 				}
 			}
 			File[] files = MIB_STORE.listFiles();
